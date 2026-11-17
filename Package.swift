@@ -22,7 +22,7 @@ let package = Package(
         .binaryTarget(
             name: "COnePassword",
             url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-b1552b06f493/COnePassword.xcframework.zip",
-            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+            checksum: "2730eefb89d9608c692d916f7aaac6ba4d518004709549dd8c851add6fc1e2df"
         ),
         .target(
             name: "OnePassword",
