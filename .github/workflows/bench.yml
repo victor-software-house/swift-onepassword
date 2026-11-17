@@ -1,0 +1,91 @@
+name: Benchmarks
+
+# Times the Go shim and the Swift module on a GitHub-hosted macOS runner, posts the numbers in the
+# job summary, and fails when a Swift benchmark is worse than its threshold in Benchmarks/Thresholds.
+# Those thresholds are the p90 of each benchmark on this runner type. Every run also writes new ones
+# from its own numbers and uploads them as the thresholds artifact, to commit under
+# Benchmarks/Thresholds when a change makes a benchmark slower on purpose.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - core/**
+      - Sources/**
+      - Package.swift
+      - Benchmarks/**
+      - Tests/OnePasswordTests/Fixtures/**
+      - mise-tasks/bench/**
+      - .github/workflows/bench.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+  # .miserc.toml loads the dev profile, the git hooks and their scanners, for local work only.
+  MISE_ENV: ci
+
+concurrency:
+  # One run per pull request: a new push cancels the run it replaces.
+  group: bench-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    if: ${{ !github.event.pull_request.draft }}
+    name: Benchmarks (macOS)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          # mise.toml's min_version; the action otherwise takes the newest release older than 24 h.
+          version: 2026.11.6
+      - run: xcodebuild -version
+      - name: Go benchmarks
+        shell: bash
+        run: |
+          mise run bench:go | tee go-bench.txt
+          {
+            echo '## Go benchmarks'
+            echo
+            echo '```text'
+            cat go-bench.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Swift benchmarks
+        shell: bash
+        run: |
+          mise run bench:swift report | tee swift-bench.md
+          {
+            echo '## Swift benchmarks'
+            echo
+            cat swift-bench.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Swift benchmarks against the thresholds
+        shell: bash
+        run: |
+          status=0
+          mise run bench:swift check | tee swift-check.md || status=$?
+          {
+            echo '## Swift thresholds'
+            echo
+            cat swift-check.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - name: Write the thresholds from this run
+        if: ${{ !cancelled() }}
+        run: mise run bench:swift update
+      - name: Upload the thresholds
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: thresholds
+          path: Benchmarks/Thresholds
+          if-no-files-found: error

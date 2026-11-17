@@ -80,6 +80,7 @@ jobs:
             echo "- XCFramework zip: $size bytes ($((size / 1048576)) MiB)"
             echo "- Checksum: $(cat build/core/checksum.txt)"
             echo "- First client start-up, one \`op_client_open\` with a malformed token: $(cat build/core/startup-ms.txt) ms"
+            echo "- Peak resident size of that process: $(cat build/core/peak-rss-mib.txt) MiB"
             echo "- Built with $(go version) and $(xcodebuild -version | head -n 1) on $ImageOS ($ImageVersion)"
           } > build/core/notes.md
           gh release create "$TAG" build/core/COnePassword.xcframework.zip \
