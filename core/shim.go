@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -76,6 +77,50 @@ func safely(work func() string) (out string) {
 	return work()
 }
 
+// refusedTokenMessages are the parts of the SDK core's messages that mean the token is refused,
+// unusable or not authenticated.
+//
+// onepassword-sdk-go v0.4.1 has two typed errors, DesktopSessionExpiredError and
+// RateLimitExceededError (errors.go:10-24). unmarshalError (errors.go:26-46) reads the JSON that
+// the core returns, {"name": ..., "message": ...} (integration_tests/integration_test.go:102 and
+// 127), and for every other name returns errors.New(message). NewClient wraps what it gets in
+// "error initializing client: %w" (client_builder.go:52). The message is therefore all that tells
+// a refused token from a network failure, so a message is matched as a substring. The core's
+// messages are string constants in internal/wasm/core.wasm:
+//
+//   - Every message about the token holds "service account token": "service account token had
+//     invalid format, please create another token: ", "service account token base64 decoding
+//     failed, please create another token", "service account token is invalid: ", "service
+//     account token was not specified", "service account token's throttle token is invalid.
+//     please create a new service account token: ", "invalid service account token, please make
+//     sure you provide a valid service account token as parameter: ", and "bad service account
+//     token, please rotate it: ", which 1Password's refusal of a token gives.
+//   - "you are not authenticated", the answer to an unauthorized request, such as one with a token
+//     revoked after the client opened.
+//
+// The core's "authentication error: " prefix is not matched, because it can hold a network
+// failure, and "you don't have the right permissions to access this resource" is not matched,
+// because the token is accepted there and only the vault is out of its reach.
+var refusedTokenMessages = [...]string{
+	"service account token",
+	"you are not authenticated",
+}
+
+// kindOf maps an SDK error to the kind of the JSON error object.
+func kindOf(err error) string {
+	var limited *onepassword.RateLimitExceededError
+	if errors.As(err, &limited) {
+		return kindRateLimited
+	}
+	message := err.Error()
+	for _, refused := range refusedTokenMessages {
+		if strings.Contains(message, refused) {
+			return kindAuthentication
+		}
+	}
+	return kindOther
+}
+
 // open is the Go side of op_client_open.
 func open(token, name, version string) string {
 	return safely(func() string {
@@ -87,7 +132,7 @@ func open(token, name, version string) string {
 			onepassword.WithIntegrationInfo(name, version),
 		)
 		if err != nil {
-			return fail(kindAuthentication, err.Error())
+			return fail(kindOf(err), err.Error())
 		}
 
 		mu.Lock()
@@ -138,11 +183,7 @@ func call(handle uint64, req string) string {
 			return fail(kindBadRequest, "unknown method")
 		}
 		if err != nil {
-			var limited *onepassword.RateLimitExceededError
-			if errors.As(err, &limited) {
-				return fail(kindRateLimited, err.Error())
-			}
-			return fail(kindOther, err.Error())
+			return fail(kindOf(err), err.Error())
 		}
 
 		result, err := json.Marshal(value)
