@@ -1,0 +1,50 @@
+{
+  "result": {
+    "id": "cccccccccccccccccccccccccc",
+    "title": "Deploy key",
+    "category": "SshKey",
+    "vaultId": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fields": [
+      {
+        "id": "private_key",
+        "title": "private key",
+        "fieldType": "SshKey",
+        "value": "PLACEHOLDER-PRIVATE-KEY-NOT-A-KEY",
+        "details": {
+          "type": "SshKey",
+          "content": {
+            "publicKey": "ssh-ed25519 AAAAFAKEFAKEFAKEFAKE fake-key-for-tests",
+            "fingerprint": "SHA256:FAKEFINGERPRINT",
+            "keyType": "Ed25519"
+          }
+        }
+      },
+      {
+        "id": "public_key",
+        "title": "public key",
+        "fieldType": "Text",
+        "value": "ssh-ed25519 AAAAFAKEFAKEFAKEFAKE fake-key-for-tests"
+      },
+      {
+        "id": "hosts",
+        "title": "hosts",
+        "sectionId": "signd",
+        "fieldType": "Text",
+        "value": "git.example.com"
+      }
+    ],
+    "sections": [
+      {
+        "id": "signd",
+        "title": "signd"
+      }
+    ],
+    "notes": "",
+    "tags": null,
+    "websites": null,
+    "version": 7,
+    "files": null,
+    "createdAt": "2026-11-02T10:00:00Z",
+    "updatedAt": "2026-11-17T12:30:45.123456789Z"
+  }
+}
