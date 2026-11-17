@@ -2,7 +2,7 @@
 #MISE description="Run the Swift benchmarks once, print the numbers, and fail when one is worse than its committed threshold; macOS only"
 # Benchmarks/Thresholds holds the p90 of each benchmark on the CI runner. One run is stored as the
 # baseline named run, and the numbers and the threshold check both read it, so nothing runs twice.
-# The tool shows a progress bar while it runs; CI passes --no-progress. build/bench/ keeps the two
+# The tool shows its progress for each benchmark while it runs, in CI too. build/bench/ keeps the two
 # tables for the job summary. `update` runs the benchmarks again and writes new thresholds.
 set -euo pipefail
 root=${MISE_PROJECT_ROOT:?}

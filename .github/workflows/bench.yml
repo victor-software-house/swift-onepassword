@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: mise run bench:go | tee go-bench.txt
       - name: Run the Swift benchmarks
-        run: mise run bench:swift check --no-progress
+        run: mise run bench:swift check
       - name: Post the numbers
         if: ${{ !cancelled() }}
         shell: bash
@@ -75,7 +75,7 @@ jobs:
       # A failed check offers new thresholds from a second run, for a change that is slower on purpose.
       - name: Write new thresholds
         if: ${{ failure() }}
-        run: mise run bench:swift update --no-progress
+        run: mise run bench:swift update
       - name: Upload the new thresholds
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
