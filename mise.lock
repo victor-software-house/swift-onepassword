@@ -24,6 +24,37 @@ url = "https://github.com/open-policy-agent/conftest/releases/download/v0.71.1/c
 url_api = "https://api.github.com/repos/open-policy-agent/conftest/releases/assets/614476647"
 provenance = "github-attestations"
 
+[[tools.gh]]
+version = "2.104.0"
+backend = "aqua:cli/cli"
+specifiers = ["2.104.0"]
+
+[tools.gh."platforms.macos-arm64"]
+checksum = "sha256:23b12706219b9892e44236f988444a24adcf29284e16b35e03ba5b863fb6eb8e"
+url = "https://github.com/cli/cli/releases/download/v2.104.0/gh_2.104.0_macOS_arm64.zip"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/740719079"
+provenance = "github-attestations"
+
+[[tools."github:victor-software-house/verctl"]]
+version = "0.8.5"
+backend = "github:victor-software-house/verctl"
+specifiers = ["0.8.5"]
+
+[tools."github:victor-software-house/verctl"."platforms.macos-arm64"]
+checksum = "sha256:3055c6148775dbb31188b27fae3db1261cbf21978abfab1ad166816cbd4aaf1d"
+checksum_source = "mise-versions"
+url = "https://github.com/victor-software-house/verctl/releases/download/v0.8.5/verctl_0.8.5_macos_arm64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/742662167"
+
+[[tools.go]]
+version = "1.27.4"
+backend = "core:go"
+specifiers = ["1.27.4"]
+
+[tools.go."platforms.macos-arm64"]
+checksum = "sha256:91a44a2b8a716600ad94a4f143e156116620db8828086a6e3602291be9bd0bb4"
+url = "https://dl.google.com/go/go1.27.4.darwin-arm64.tar.gz"
+
 [[tools.jactionlint]]
 version = "2.5.0"
 backend = "packslip:github.com/jdx/jactionlint"

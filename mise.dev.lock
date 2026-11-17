@@ -35,6 +35,17 @@ checksum_source = "mise-versions"
 url = "https://github.com/crate-ci/committed/releases/download/v1.1.11/committed-v1.1.11-aarch64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/crate-ci/committed/releases/assets/362199688"
 
+[[tools."github:victor-software-house/verctl"]]
+version = "0.8.5"
+backend = "github:victor-software-house/verctl"
+specifiers = ["0.8.5"]
+
+[tools."github:victor-software-house/verctl"."platforms.macos-arm64"]
+checksum = "sha256:3055c6148775dbb31188b27fae3db1261cbf21978abfab1ad166816cbd4aaf1d"
+checksum_source = "mise-versions"
+url = "https://github.com/victor-software-house/verctl/releases/download/v0.8.5/verctl_0.8.5_macos_arm64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/742662167"
+
 [[tools.gitleaks]]
 version = "8.30.1"
 backend = "aqua:gitleaks/gitleaks"
