@@ -12,7 +12,7 @@ lockfile = true
 # The platforms CI and contributors use, from the platforms answer. Without
 # it, mise install fills every tool up to the platforms any tool already
 # records, and rewrites the locks.
-lockfile_platforms = ["macos-arm64"]
+lockfile_platforms = ["linux-x64", "macos-arm64"]
 
 # Every tool this root declares must match mise.lock or mise.<env>.lock.
 [tool_config]

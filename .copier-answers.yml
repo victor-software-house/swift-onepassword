@@ -17,6 +17,7 @@ pieces:
 pieces_extra:
 - lint_workflows
 platforms:
+- linux-x64
 - macos-arm64
 project: swift-package
 prose_fail_level: error
