@@ -3,7 +3,7 @@ name: Release
 # Every push to main runs verctl's release workflow, which releases a merged Version PR's version
 # commit on GitHub (publisher none) and opens or updates the Version PR. When that push is the
 # version commit, a throwaway package then depends on the released version and links it. A manual
-# run checks the latest release again.
+# run checks the latest release again. A live job reads the test vault on every run.
 on:
   push:
     branches: [main]
@@ -84,3 +84,28 @@ jobs:
       - env:
           VERSION: ${{ needs.plan.outputs.version }}
         run: mise run release:consumer "$VERSION"
+
+  live:
+    name: Live 1Password (macOS)
+    needs: verctl
+    runs-on: xcode-27
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.11.6
+      - name: Read the test vault
+        env:
+          OP_TEST_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_TEST_SERVICE_ACCOUNT_TOKEN }}
+        run: mise run live
+      - name: Post the timings
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f build/live-report.md ]; then
+            { echo '## Live calls'; echo; cat build/live-report.md; } >> "$GITHUB_STEP_SUMMARY"
+          fi
