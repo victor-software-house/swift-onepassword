@@ -27,6 +27,12 @@ public final class Client: Sendable {
         self.handle = handle
     }
 
+    /// A client for a handle the core already holds. Tests and benchmarks use a handle that no
+    /// client holds to run calls that fail before they reach 1Password, with no token.
+    @_spi(Benchmarks) public init(handle: UInt64) {
+        self.handle = handle
+    }
+
     deinit {
         op_client_close(handle)
     }
@@ -66,7 +72,7 @@ public final class Client: Sendable {
     }
 
     /// Runs a blocking C call on the dedicated queue.
-    private static func run(_ work: @escaping @Sendable () -> String) async -> String {
+    private static func run(_ work: @escaping @Sendable () -> Data) async -> Data {
         await withCheckedContinuation { continuation in
             queue.async { continuation.resume(returning: work()) }
         }
@@ -77,10 +83,10 @@ public final class Client: Sendable {
         UnsafeMutablePointer(mutating: pointer)
     }
 
-    /// Copies a reply into a Swift string and frees it.
-    private static func take(_ reply: UnsafeMutablePointer<CChar>?) -> String {
-        guard let reply else { return #"{"error":{"kind":"other","message":"the core returned no reply"}}"# }
+    /// Copies a reply once, into the bytes the JSON decoder reads, and frees it.
+    private static func take(_ reply: UnsafeMutablePointer<CChar>?) -> Data {
+        guard let reply else { return Data(#"{"error":{"kind":"other","message":"the core returned no reply"}}"#.utf8) }
         defer { op_free(reply) }
-        return String(cString: reply)
+        return Data(bytes: reply, count: strlen(reply))
     }
 }

@@ -4,9 +4,9 @@ import Testing
 @testable import OnePassword
 
 struct DecodingTests {
-    private func fixture(_ name: String) throws -> String {
+    private func fixture(_ name: String) throws -> Data {
         let url = try #require(Bundle.module.resourceURL).appending(path: "Fixtures/\(name).json")
-        return try String(contentsOf: url, encoding: .utf8)
+        return try Data(contentsOf: url)
     }
 
     @Test func vaultList() throws {
@@ -70,5 +70,28 @@ struct DecodingTests {
         let object = try #require(try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: String])
 
         #expect(object == ["method": "items.get", "vaultId": "v", "itemId": "i"])
+    }
+
+    @Test(arguments: [
+        ("1970-01-01T00:00:00Z", 0.0),
+        ("2024-02-29T00:00:00Z", 1_709_164_800),
+        ("2026-11-17T12:30:45Z", 1_794_918_645),
+        ("2026-11-17T12:30:45.5Z", 1_794_918_645.5),
+        ("2026-11-17T12:30:45.123456789012Z", 1_794_918_645.123456789),
+        ("2026-11-17T12:30:45+05:30", 1_794_898_845),
+        ("2026-11-17T12:30:45.25-03:00", 1_794_929_445.25),
+    ])
+    func timestamps(text: String, seconds: Double) throws {
+        let date = try #require(Wire.parseTimestamp(text))
+
+        #expect(abs(date.timeIntervalSince1970 - seconds) < 1e-6)
+    }
+
+    @Test(arguments: [
+        "", "garbage", "2026-11-17", "2026-11-17T12:30:45", "2026-11-17T12:30:45.Z", "2026-13-17T12:30:45Z",
+        "2026-11-17T25:30:45Z", "2026-11-17T12:30:45+0530", "2026-11-17T12:30:45Zextra", "2026-11-17 12:30:45Z",
+    ])
+    func malformedTimestamps(text: String) {
+        #expect(Wire.parseTimestamp(text) == nil)
     }
 }
