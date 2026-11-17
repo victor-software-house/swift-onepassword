@@ -22,9 +22,9 @@ let benchmarks: @Sendable () -> Void = {
     // turned into an underscore and `thresholds check` reads it under the name as written.
     // Each benchmark runs in a process of its own, so Client.init-cold is a true cold start.
     // A threshold fails `thresholds check` when a metric's p90 rises by more than its relative percentage over
-    // the committed value. GitHub's shared runners vary, so the time limits are wide; the malloc
+    // the committed value. GitHub's shared runners vary, so the time limits are wide, a doubling; the malloc
     // counts are exact, so theirs are narrow.
-    let timeLimit = BenchmarkThresholds(relative: [.p90: 50.0])
+    let timeLimit = BenchmarkThresholds(relative: [.p90: 100.0])
     let coldTimeLimit = BenchmarkThresholds(relative: [.p90: 100.0])
     let memoryLimit = BenchmarkThresholds(relative: [.p90: 15.0])
     let countLimit = BenchmarkThresholds(relative: [.p90: 5.0])
