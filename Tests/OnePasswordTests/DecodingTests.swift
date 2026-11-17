@@ -41,12 +41,53 @@ struct DecodingTests {
         #expect(item.category == "SshKey")
         #expect(item.version == 7)
         #expect(item.sections == [Item.Section(id: "signd", title: "signd")])
-        #expect(item.fields.map(\.id) == ["private_key", "public_key", "hosts"])
+        #expect(item.fields.map(\.id) == ["private_key", "public_key", "otp", "hosts"])
         #expect(item.fields[0].fieldType == "SshKey")
         #expect(item.fields[0].value == "PLACEHOLDER-PRIVATE-KEY-NOT-A-KEY")
         #expect(item.fields[0].sectionId == nil)
-        #expect(item.fields[2].sectionId == "signd")
-        #expect(item.fields[2].value == "git.example.com")
+        #expect(item.fields[3].sectionId == "signd")
+        #expect(item.fields[3].value == "git.example.com")
+    }
+
+    @Test func publicKeyComesFromTheDetailsOfAnSshKeyField() throws {
+        let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-ssh-key"))
+        let fields = try #require(reply.result).fields
+
+        #expect(fields[0].publicKey == "ssh-ed25519 AAAAFAKEFAKEFAKEFAKE fake-key-for-tests")
+        // No details, and details of another type with no public key.
+        #expect(fields[1].publicKey == nil)
+        #expect(fields[2].publicKey == nil)
+        #expect(fields[3].publicKey == nil)
+    }
+
+    @Test func nullDetailsContentHasNoPublicKey() throws {
+        let json = Data(
+            #"""
+            {"result": {"id": "i", "title": "t", "category": "SshKey", "vaultId": "v", "version": 1,
+              "updatedAt": "2026-11-17T12:30:45Z", "fields": [
+                {"id": "f", "title": "f", "fieldType": "SshKey", "value": "x",
+                 "details": {"type": "SshKey", "content": null}}]}}
+            """#.utf8)
+        let item = try #require(Wire.decode(Wire.Reply<Item>.self, from: json).result)
+
+        #expect(item.fields.map(\.publicKey) == [nil])
+    }
+
+    @Test func fieldRoundTripsItsPublicKey() throws {
+        let field = Item.Field(
+            id: "k", title: "k", fieldType: "SshKey", value: "v", sectionId: "s", publicKey: "ssh-ed25519 AAAA")
+        let data = try JSONEncoder().encode(field)
+
+        #expect(try JSONDecoder().decode(Item.Field.self, from: data) == field)
+    }
+
+    @Test func aReplyThatDoesNotDecodeIsADecodingError() {
+        let error = #expect(throws: OnePasswordError.self) {
+            _ = try Wire.decode(Wire.Reply<Item>.self, from: Data(#"{"result": {"id": 1}}"#.utf8))
+        }
+
+        #expect(error?.kind == .decoding)
+        #expect(error?.message == "the reply could not be decoded")
     }
 
     @Test func nullSlicesReadAsEmpty() throws {
@@ -61,6 +102,7 @@ struct DecodingTests {
         let reply = try Wire.decode(Wire.Reply<[VaultOverview]>.self, from: fixture("error-rate-limited"))
 
         #expect(reply.error?.error.kind == .rateLimited)
+        #expect(Wire.Failure(kind: "authentication", message: "x").error.kind == .authentication)
         #expect(Wire.Failure(kind: "badRequest", message: "x").error.kind == .other)
         #expect(Wire.Failure(kind: "unknownHandle", message: "x").error.kind == .other)
     }

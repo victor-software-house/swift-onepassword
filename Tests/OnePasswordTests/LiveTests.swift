@@ -34,6 +34,8 @@ struct LiveTests {
         #expect(hosts == "example.invalid")
         let hasPrivateKey = item.fields.contains { $0.fieldType == "SshKey" && !$0.value.isEmpty }
         #expect(hasPrivateKey)
+        let publicKey = item.fields.first { $0.fieldType == "SshKey" }?.publicKey
+        #expect(publicKey?.hasPrefix("ssh-ed25519 ") == true)
     }
 
     /// Times a warm vaults.list and items.get on the network, with no gate, because the network
