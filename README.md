@@ -54,7 +54,7 @@ Keep the client and reuse it.
    It calls the SDK, pinned to an exact version in `core/go.mod`, and exports four C functions: `op_client_open`, `op_call`, `op_client_close` and `op_free`.  
    Requests and replies are JSON.
 2. `mise run core:build` builds `core/` with `go build -buildmode=c-archive` for arm64 and x86_64, joins them with `lipo`, wraps the result as `COnePassword.xcframework` with a module map, and prints the zip's checksum and size.  
-   `mise run core:measure` also times the first client.
+   `mise run core:measure` also times the first client and reads its peak resident size.
 3. The binary is versioned by the content of `core/`, not by the package version.  
    Its release tag is `core-` and the first 12 hex digits of the git tree hash of `core/` (`mise run core:tag`).
 4. The `Core` workflow (`.github/workflows/core.yml`) builds the binary on a GitHub-hosted macOS runner when a pull request changes `core/`.  
@@ -66,10 +66,42 @@ Keep the client and reuse it.
 The package's own releases (`v*` tags, made by verctl) are separate from the `core-*` prereleases.  
 After a release, a throwaway package that depends on the released version must build and link on a GitHub-hosted runner.
 
+## Cost
+
+The numbers are from an Apple M4 Pro.  
+The `Benchmarks` workflow posts the same ones for a GitHub-hosted runner in its job summary.
+
+| What | Cost |
+|:--|:--|
+| The first `Client.init` of a process | 1.2 s, and 165 MiB at its peak |
+| A call that fails before 1Password, round trip from Swift | 6 to 7 µs and 33 allocations, with none left allocated |
+| The Go side of that call, with no cgo | 0.2 µs for an unknown handle, 0.5 µs for a bad request |
+| Decoding a vault list, an item list or an SSH Key item | 5 to 10 µs |
+| `COnePassword.xcframework.zip` | 26 MB |
+
+The first client dominates:
+
+- 1Password's core is a 9.5 MB WebAssembly module, and wazero compiles it to machine code in one thread, which takes 1.17 s of the 1.2 s.
+- Garbage collector settings, thread count and profile-guided optimisation of the shim changed the start-up by less than 4%.
+- Compiling with wazero's compilation cache on disk took 0.04 s.
+  The SDK builds its runtime without a hook for a cache, so the shim cannot set one without patching the SDK.
+- A call after that costs microseconds, far below the time of a request to 1Password.
+  Create the client once, as early as the program can, and keep it.
+
+## Tests and benchmarks
+
+`mise run check` runs the repository checks, `go test -race` in `core/`, `swift build` and `swift test`.  
+The tests cover the shim's dispatch with stub SDK clients, a closed or unknown handle, concurrent calls, the typed errors, the decoding of fixtures, and that every reply is freed.
+
+- `mise run bench:go` runs the Go benchmarks: a cold open in a fresh process, a warm open, and the dispatch of a call.
+- `mise run bench:swift` runs the Swift benchmarks in `Benchmarks/`, a package of its own, so the library has no dependency on the benchmark package.
+- The `Benchmarks` workflow runs both on a GitHub-hosted macOS runner and fails when a Swift benchmark is worse than its threshold in `Benchmarks/Thresholds`.
+- Each run uploads thresholds from its own numbers as the `thresholds` artifact, to commit when a change makes a benchmark slower on purpose.
+
 ## Develop
 
 Swift comes from Xcode 27, and the other tools are pinned in `mise.toml`.  
-CI runs `mise run check`, which runs the repository checks, `swift build` and `swift test`.
+CI runs `mise run check`.
 
 ## Licence
 
