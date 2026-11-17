@@ -1,4 +1,5 @@
 import Darwin
+import Foundation
 import Testing
 
 @_spi(Benchmarks) @testable import OnePassword
@@ -62,6 +63,28 @@ struct ClientTests {
         #expect(answered == 64 * 100)
     }
 
+    /// An agent opens one client and keeps it for days, calling it every few minutes. A thousand
+    /// calls on one client, and a thousand failing opens through the core, must leave the resident
+    /// size where it was: a slow leak shows as growth.
+    @Test func aLongLivedClientKeepsItsMemory() async {
+        _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
+        let client = Client(handle: 1 << 44)
+        for _ in 0..<100 {
+            _ = try? await client.vaults()
+            _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
+        }
+        let start = residentMiB()
+
+        for _ in 0..<1000 {
+            _ = try? await client.vaults()
+            _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
+        }
+        let end = residentMiB()
+
+        print(String(format: "long-lived client, resident size: start %.1f MiB, end %.1f MiB", start, end))
+        #expect(end - start < 32, "the resident size grew from \(start) to \(end) MiB")
+    }
+
     /// Every reply the core returns is a C string that the client frees with op_free. The malloc
     /// zones hold C strings, and the Go heap lives apart from them, so a reply left allocated
     /// raises the bytes in use by its size on each call.
@@ -77,6 +100,17 @@ struct ClientTests {
         // allocator itself settles within a megabyte.
         #expect(growth < 2 << 20, "the malloc zones grew by \(growth) bytes")
     }
+}
+
+private func residentMiB() -> Double {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<integer_t>.size)
+    let status = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+        }
+    }
+    return status == KERN_SUCCESS ? Double(info.resident_size) / 1_048_576 : 0
 }
 
 private func mallocBytesInUse() -> Int {

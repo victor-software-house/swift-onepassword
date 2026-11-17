@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -194,5 +197,60 @@ func TestAllocationsPerCall(t *testing.T) {
 	t.Logf("unknown handle: %.0f allocations per call", allocs)
 	if allocs > bound {
 		t.Fatalf("%.0f allocations per call, more than %d", allocs, bound)
+	}
+}
+
+// residentMiB is the process's resident size now, which ps reads.
+func residentMiB(tb testing.TB) float64 {
+	tb.Helper()
+	out, err := exec.Command("ps", "-o", "rss=", "-p", strconv.Itoa(os.Getpid())).Output()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	kib, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+	if err != nil {
+		tb.Fatalf("ps printed %q", out)
+	}
+	return kib / 1024
+}
+
+type memory struct{ heapMiB, residentMiB float64 }
+
+// snapshot collects garbage first, so the heap is what the program still holds.
+func snapshot(tb testing.TB) memory {
+	tb.Helper()
+	runtime.GC()
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return memory{heapMiB: float64(stats.HeapAlloc) / (1 << 20), residentMiB: residentMiB(tb)}
+}
+
+// An agent opens one client and keeps it, calling it every few minutes for days. A thousand calls
+// on one client, through the stub clients and through the core with failing opens, must leave the
+// Go heap and the resident size where they were; a slow leak shows as growth.
+func TestLongLivedClientMemory(t *testing.T) {
+	stub := register(t, &onepassword.Client{VaultsAPI: vaultsStub{list: func() ([]onepassword.VaultOverview, error) {
+		return []onepassword.VaultOverview{{ID: "v1", Title: "SSH keys", ContentVersion: 41}}, nil
+	}}})
+	open("malformed-token", "shim-test", "0") // loads the core, which the numbers below start after
+	for range 100 {
+		call(stub, `{"method":"vaults.list"}`)
+		open("malformed-token", "shim-test", "0")
+	}
+	start := snapshot(t)
+
+	for range 1000 {
+		call(stub, `{"method":"vaults.list"}`)
+		open("malformed-token", "shim-test", "0")
+	}
+	end := snapshot(t)
+
+	t.Logf("start: Go heap %.1f MiB, resident %.1f MiB", start.heapMiB, start.residentMiB)
+	t.Logf("end:   Go heap %.1f MiB, resident %.1f MiB", end.heapMiB, end.residentMiB)
+	if growth := end.heapMiB - start.heapMiB; growth > 2 {
+		t.Fatalf("the Go heap grew by %.1f MiB over 1000 calls", growth)
+	}
+	if growth := end.residentMiB - start.residentMiB; growth > 16 {
+		t.Fatalf("the resident size grew by %.1f MiB over 1000 calls", growth)
 	}
 }
