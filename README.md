@@ -83,15 +83,30 @@ The first client dominates:
 
 - 1Password's core is a 9.5 MB WebAssembly module, and wazero compiles it to machine code in one thread, which takes 1.17 s of the 1.2 s.
 - Garbage collector settings, thread count and profile-guided optimisation of the shim changed the start-up by less than 4%.
-- Compiling with wazero's compilation cache on disk took 0.04 s.
-  The SDK builds its runtime without a hook for a cache, so the shim cannot set one without patching the SDK.
+- A compilation cache on disk would cut it to 0.04 s in wazero's own test.
+  The SDK has no option for one, and a cache of machine code that the process runs is a place to plant code, so the shim has none.
 - A call after that costs microseconds, far below the time of a request to 1Password.
   Create the client once, as early as the program can, and keep it.
+  A thousand calls and a thousand failing opens on one client left the Go heap at 19.8 MiB and the resident size within 1 MiB.
 
 ## Tests and benchmarks
 
-`mise run check` runs the repository checks, `go test -race` in `core/`, `swift build` and `swift test`.  
-The tests cover the shim's dispatch with stub SDK clients, a closed or unknown handle, concurrent calls, the typed errors, the decoding of fixtures, and that every reply is freed.
+`mise run check` runs the repository checks, `go test -race` in `core/`, `swift build` and `swift test`.
+
+The tests cover:
+
+- the shim's dispatch with stub SDK clients, the typed errors, and a closed or unknown handle;
+- concurrent calls, and that every reply is freed;
+- the memory of a long-lived client;
+- the decoding of fixtures.
+
+`mise run live` also reads a real test vault when `OP_TEST_SERVICE_ACCOUNT_TOKEN` holds a read-only service account token for it, and skips otherwise.
+
+- CI runs it on pull requests from this repository and on every release run.
+- The job summary shows the timings of a warm `vaults.list` and `items.get`.
+- It makes about 45 calls to 1Password.
+
+The benchmarks:
 
 - `mise run bench:go` runs the Go benchmarks: a cold open in a fresh process, a warm open, and the dispatch of a call.
 - `mise run bench:swift` runs the Swift benchmarks in `Benchmarks/`, a package of its own, so the library has no dependency on the benchmark package.
