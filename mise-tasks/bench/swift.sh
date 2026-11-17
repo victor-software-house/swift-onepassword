@@ -4,6 +4,11 @@
 # baseline named run, and the numbers and the threshold check both read it, so nothing runs twice.
 # The tool shows its progress for each benchmark while it runs, in CI too. build/bench/ keeps the two
 # tables for the job summary. `update` runs the benchmarks again and writes new thresholds.
+#
+# The tool prints in blocks unless its output is a terminal, so the run goes through script, which
+# gives it one. A benchmark that is better than its threshold by more than the allowed percentage
+# makes the plugin fail with the error benchmarkThresholdImprovement, which swift reports as exit
+# status 1, like a regression, so the check reads the error's name from its stderr.
 set -euo pipefail
 root=${MISE_PROJECT_ROOT:?}
 cd "$root/Benchmarks"
@@ -14,16 +19,19 @@ mkdir -p "$out"
 
 case "$mode" in
   check)
-    swift package --allow-writing-to-directory .benchmarkBaselines/ benchmark baseline update run "$@"
-    swift package benchmark baseline read run --format markdown --no-progress | tee "$out/numbers.md"
-    # The tool exits 0 when equal, 4 when only better, and 2 or more for a regression or an error.
+    script -q /dev/null swift package --allow-writing-to-directory .benchmarkBaselines/ benchmark baseline update run "$@"
+    swift package benchmark baseline read run --format markdown | tee "$out/numbers.md"
     status=0
-    swift package benchmark baseline check run --check-absolute-path Thresholds --format markdown --no-progress \
-      | tee "$out/check.md" || status=$?
-    case "$status" in 0 | 4) ;; *) exit "$status" ;; esac
+    swift package benchmark thresholds check run --format markdown 2>"$out/check.err" | tee "$out/check.md" || status=$?
+    cat "$out/check.err" >&2
+    if [ "$status" -ne 0 ] && grep -qx 'error: benchmarkThresholdImprovement' "$out/check.err"; then
+      echo "▲ a benchmark is better than its threshold; commit new thresholds to tighten the gate"
+      status=0
+    fi
+    exit "$status"
     ;;
   update)
-    swift package --allow-writing-to-package-directory benchmark thresholds update "$@"
+    script -q /dev/null swift package --allow-writing-to-package-directory benchmark thresholds update "$@"
     ;;
   *)
     echo "usage: bench:swift [check|update]" >&2
