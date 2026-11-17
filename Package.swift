@@ -27,12 +27,7 @@ let package = Package(
         .target(
             name: "OnePassword",
             dependencies: ["COnePassword"],
-            swiftSettings: strict,
-            linkerSettings: [
-                .linkedFramework("CoreFoundation"),
-                .linkedFramework("Security"),
-                .linkedLibrary("resolv"),
-            ]
+            swiftSettings: strict
         ),
         .testTarget(
             name: "OnePasswordTests",
