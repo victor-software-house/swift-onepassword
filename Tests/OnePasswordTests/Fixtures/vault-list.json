@@ -1,0 +1,26 @@
+{
+  "result": [
+    {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "title": "SSH keys",
+      "description": "Fake vault for tests",
+      "vaultType": "userCreated",
+      "activeItemCount": 2,
+      "contentVersion": 41,
+      "attributeVersion": 3,
+      "createdAt": "2026-11-01T09:00:00Z",
+      "updatedAt": "2026-11-17T12:30:45.123456789Z"
+    },
+    {
+      "id": "bbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "title": "Other",
+      "description": "",
+      "vaultType": "userCreated",
+      "activeItemCount": 0,
+      "contentVersion": 1,
+      "attributeVersion": 1,
+      "createdAt": "2026-11-01T09:00:00Z",
+      "updatedAt": "2026-11-17T09:30:45.5-03:00"
+    }
+  ]
+}
