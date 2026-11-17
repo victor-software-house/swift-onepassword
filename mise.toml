@@ -48,5 +48,5 @@ run = "swift test"
 
 [tasks.check]
 description = "Run the repository checks, then build the package and run its tests, as CI does"
-depends = ["check:repo"]
+depends = ["check:repo", "core:test"]
 run = ["swift build", "swift test"]
