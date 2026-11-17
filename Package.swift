@@ -21,8 +21,8 @@ let package = Package(
         // url and the checksum after the Core workflow publishes the release.
         .binaryTarget(
             name: "COnePassword",
-            url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-b1552b06f493/COnePassword.xcframework.zip",
-            checksum: "2730eefb89d9608c692d916f7aaac6ba4d518004709549dd8c851add6fc1e2df"
+            url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-8dd9f5864e48/COnePassword.xcframework.zip",
+            checksum: "f176e8f9547bdbcfed79c451d15cb7cd138c38369379749a11f4315dc3bf37ea"
         ),
         .target(
             name: "OnePassword",
