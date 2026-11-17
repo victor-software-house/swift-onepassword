@@ -2,9 +2,9 @@ name: Benchmarks
 
 # Times the Go shim and the Swift module on a GitHub-hosted macOS runner, posts the numbers in the
 # job summary, and fails when a Swift benchmark is worse than its threshold in Benchmarks/Thresholds.
-# Those thresholds are the p90 of each benchmark on this runner type. Every run also writes new ones
-# from its own numbers and uploads them as the thresholds artifact, to commit under
-# Benchmarks/Thresholds when a change makes a benchmark slower on purpose.
+# Those thresholds are the p90 of each benchmark on this runner type. The Swift benchmarks run once.
+# A failed check runs them again to write new thresholds, uploaded as the thresholds artifact, to
+# commit under Benchmarks/Thresholds when a change makes a benchmark slower on purpose.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -48,42 +48,36 @@ jobs:
           # mise.toml's min_version; the action otherwise takes the newest release older than 24 h.
           version: 2026.11.6
       - run: xcodebuild -version
-      - name: Go benchmarks
+      - name: Run the Go benchmarks
+        shell: bash
+        run: mise run bench:go | tee go-bench.txt
+      - name: Run the Swift benchmarks
+        run: mise run bench:swift check --no-progress
+      - name: Post the numbers
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
-          mise run bench:go | tee go-bench.txt
           {
             echo '## Go benchmarks'
             echo
             echo '```text'
             cat go-bench.txt
             echo '```'
+            for part in numbers check; do
+              if [ -f "build/bench/$part.md" ]; then
+                echo
+                echo "## Swift benchmarks: $part"
+                echo
+                cat "build/bench/$part.md"
+              fi
+            done
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Swift benchmarks
-        shell: bash
-        run: |
-          mise run bench:swift report | tee swift-bench.md
-          {
-            echo '## Swift benchmarks'
-            echo
-            cat swift-bench.md
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Swift benchmarks against the thresholds
-        shell: bash
-        run: |
-          status=0
-          mise run bench:swift check | tee swift-check.md || status=$?
-          {
-            echo '## Swift thresholds'
-            echo
-            cat swift-check.md
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
-      - name: Write the thresholds from this run
-        if: ${{ !cancelled() }}
-        run: mise run bench:swift update
-      - name: Upload the thresholds
-        if: ${{ !cancelled() }}
+      # A failed check offers new thresholds from a second run, for a change that is slower on purpose.
+      - name: Write new thresholds
+        if: ${{ failure() }}
+        run: mise run bench:swift update --no-progress
+      - name: Upload the new thresholds
+        if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: thresholds
