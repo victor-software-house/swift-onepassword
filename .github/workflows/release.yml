@@ -1,0 +1,86 @@
+name: Release
+
+# Every push to main runs verctl's release workflow, which releases a merged Version PR's version
+# commit on GitHub (publisher none) and opens or updates the Version PR. When that push is the
+# version commit, a throwaway package then depends on the released version and links it. A manual
+# run checks the latest release again.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+  # .miserc.toml loads the dev profile, the git hooks and their scanners, for local work only.
+  MISE_ENV: ci
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verctl:
+    name: verctl
+    uses: victor-software-house/verctl/.github/workflows/release.yml@cef779a4ed2ce4705fd25c6ea17a5454d2522adc # v0.8.5
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    with:
+      publish: ${{ github.event_name == 'push' }}
+      version-pr: ${{ github.event_name == 'push' }}
+      docs: false
+      runner: '["ubuntu-26.04"]'
+    secrets:
+      app-client-id: ${{ secrets.CHANGESET_VERSION_APP_CLIENT_ID }}
+      app-private-key: ${{ secrets.CHANGESET_VERSION_APP_PRIVATE_KEY }}
+      release-mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
+      release-mirror-ci-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
+
+  plan:
+    name: Plan the consumer check
+    needs: verctl
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      consume: ${{ steps.plan.outputs.consume }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          # mise.toml's min_version; the action otherwise takes the newest release older than 24 h.
+          version: 2026.11.6
+      - id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: mise run release:plan
+
+  consumer:
+    name: Consumer package (macOS)
+    needs: plan
+    if: needs.plan.outputs.consume == 'true'
+    # GitHub-hosted macOS 27 with Xcode 27, as CI builds the package.
+    runs-on: xcode-27
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.11.6
+      - run: xcodebuild -version
+      - env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: mise run release:consumer "$VERSION"
