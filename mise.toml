@@ -47,6 +47,7 @@ description = "Run the Swift package tests"
 run = "swift test"
 
 [tasks.check]
-description = "Run the repository checks, then build the package and run its tests, as CI does"
+description = "Run the repository checks, then build the package and run its tests but the live ones, as CI does"
 depends = ["check:repo", "core:test"]
-run = ["swift build", "swift test"]
+# The live task runs LiveTests, once, and posts their timings.
+run = ["swift build", "swift test --skip LiveTests"]
