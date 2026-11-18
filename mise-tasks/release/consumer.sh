@@ -1,8 +1,10 @@
 #!/bin/sh
 #MISE description="Build a throwaway package that depends on a released version and links its binary; macOS only"
-# The version is the first argument. The package is what an app does: it names the repository's
-# URL and an exact version, and links the OnePassword module. The check passes when the client
-# starts and a malformed token gets the authenticationFailed code from 1Password's core.
+# The first argument is the version.
+# The package does what an app does.
+# It depends on the repository's URL at that exact version and links the OnePassword module.
+# The check passes when the client starts and a malformed token gets the authenticationFailed code
+# from 1Password's core.
 set -eu
 version=${1:?usage: release:consumer <version>}
 work=$(mktemp -d)
