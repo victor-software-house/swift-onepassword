@@ -1,6 +1,7 @@
-# swift-onepassword's version is the VERSION file. publisher none releases it on GitHub only; the
-# Swift package manager reads the version from the tag. The binary under the package has its own
-# core-* releases, which core.yml publishes and verctl never reads.
+# swift-onepassword's version is the VERSION file.
+# With publisher none, verctl releases it on GitHub only.
+# The Swift package manager reads the version from the tag.
+# core.yml makes the core-* releases of the binary under the package, and verctl never reads them.
 packages:
   - name: swift-onepassword
     path: VERSION
