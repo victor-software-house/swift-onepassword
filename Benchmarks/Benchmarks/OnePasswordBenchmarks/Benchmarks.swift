@@ -22,11 +22,11 @@ let benchmarks: @Sendable () -> Void = {
     // turned into an underscore and `thresholds check` reads it under the name as written.
     // Each benchmark runs in a process of its own, so Client.init-cold is a true cold start.
     // A threshold fails `thresholds check` when a metric's p90 rises by more than its relative percentage over
-    // the committed value. GitHub's shared runners vary, so the time limits are wide, a doubling; the malloc
-    // counts are exact, so theirs are narrow.
-    let timeLimit = BenchmarkThresholds(relative: [.p90: 100.0])
-    let coldTimeLimit = BenchmarkThresholds(relative: [.p90: 100.0])
-    let memoryLimit = BenchmarkThresholds(relative: [.p90: 15.0])
+    // the committed value. Only metrics that do not depend on the machine have one: GitHub's shared runners
+    // vary the time of a run by a factor of two or more, so the wall clock is measured and printed without a
+    // threshold. The malloc counts are exact, so their limit is narrow, and the resident peak of a cold
+    // start moves by a quarter between runs, so its limit is wide.
+    let memoryLimit = BenchmarkThresholds(relative: [.p90: 50.0])
     let countLimit = BenchmarkThresholds(relative: [.p90: 5.0])
     let leakLimit = BenchmarkThresholds(absolute: [.p90: 8192])
 
@@ -38,7 +38,7 @@ let benchmarks: @Sendable () -> Void = {
             warmupIterations: 0,
             maxDuration: .seconds(60),
             maxIterations: 1,
-            thresholds: [.wallClock: coldTimeLimit, .peakMemoryResident: memoryLimit]
+            thresholds: [.peakMemoryResident: memoryLimit]
         )
     ) { benchmark in
         let token = "malformed-token"
@@ -56,7 +56,7 @@ let benchmarks: @Sendable () -> Void = {
             timeUnits: .microseconds,
             scalingFactor: .kilo,
             thresholds: [
-                .wallClock: timeLimit, .mallocCountTotal: countLimit,
+                .mallocCountTotal: countLimit,
                 // A reply left allocated is about 80 bytes a call, 80000 over the 1000 iterations.
                 .memoryLeakedBytes: leakLimit,
             ]
@@ -82,7 +82,7 @@ let benchmarks: @Sendable () -> Void = {
             metrics: [.wallClock, .mallocCountTotal],
             timeUnits: .microseconds,
             scalingFactor: .kilo,
-            thresholds: [.wallClock: timeLimit, .mallocCountTotal: countLimit]
+            thresholds: [.mallocCountTotal: countLimit]
         )
     ) { benchmark in
         let queue = DispatchQueue(label: "reference", attributes: .concurrent)
@@ -100,7 +100,7 @@ let benchmarks: @Sendable () -> Void = {
             metrics: [.wallClock, .mallocCountTotal],
             timeUnits: .microseconds,
             scalingFactor: .kilo,
-            thresholds: [.wallClock: timeLimit, .mallocCountTotal: countLimit]
+            thresholds: [.mallocCountTotal: countLimit]
         )
     ) { benchmark in
         for _ in benchmark.scaledIterations {
@@ -115,7 +115,7 @@ let benchmarks: @Sendable () -> Void = {
             metrics: [.wallClock, .mallocCountTotal],
             timeUnits: .microseconds,
             scalingFactor: .kilo,
-            thresholds: [.wallClock: timeLimit, .mallocCountTotal: countLimit]
+            thresholds: [.mallocCountTotal: countLimit]
         )
     ) { benchmark in
         for _ in benchmark.scaledIterations {
@@ -130,7 +130,7 @@ let benchmarks: @Sendable () -> Void = {
             metrics: [.wallClock, .mallocCountTotal],
             timeUnits: .microseconds,
             scalingFactor: .kilo,
-            thresholds: [.wallClock: timeLimit, .mallocCountTotal: countLimit]
+            thresholds: [.mallocCountTotal: countLimit]
         )
     ) { benchmark in
         for _ in benchmark.scaledIterations {
