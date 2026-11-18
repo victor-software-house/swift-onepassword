@@ -3,18 +3,28 @@ name: CI
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches: [main]
+  merge_group:
+  # Refresh the default branch's build cache without repeating every push.
+  schedule:
+    - cron: "37 8 * * *"
+  workflow_dispatch:
 
 # Each job asks for the permissions it needs.
 permissions:
   contents: read
 
 concurrency:
-  # A draft run gets a group of its own, so it never cancels the ready run.
+  # Every merge queue entry shares one group, so a newer entry's run cancels the
+  # runs of the entries ahead of it: the queue merges on the newest entry's
+  # result, whose merge-group commit holds every entry ahead of it. That holds
+  # only while the queue groups HEADGREEN; under ALLGREEN a cancelled entry
+  # fails. Outside the queue, a draft run gets a group of its own, so it never
+  # cancels the ready run.
   group: >-
-    ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number ||
-    github.ref_name }}${{ github.event.pull_request.draft && '-draft' || '' }}
+    ci-${{ github.workflow }}-${{ github.event_name == 'merge_group' && format('queue-{0}',
+    github.event.merge_group.base_ref) || format('{0}-{1}{2}', github.event_name,
+    github.event.pull_request.number || github.ref_name, github.event.pull_request.draft && '-draft'
+    || '') }}
   cancel-in-progress: true
 
 env:
@@ -27,6 +37,23 @@ env:
   MISE_ENV: ci
 
 jobs:
+  refresh:
+    if: github.event_name == 'schedule'
+    # One API call on the runner chosen when this repository was rendered.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch CI on the default branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow_ref }}
+        run: |
+          workflow=${WORKFLOW%@*}
+          gh workflow run "${workflow##*/}" --repo "$REPOSITORY" --ref main
+
 # Whether a pull request changes anything the build reads. Documentation is
   # the root's Markdown files, docs/, and openspec/. A documentation file
   # still counts as a build input when a Swift source names its path.
@@ -90,9 +117,9 @@ jobs:
     # empty, so the build runs there, and when Changes itself failed.
     if: >-
       ${{ !cancelled() && !github.event.pull_request.draft
-      && needs.changes.outputs.build != 'false' }}
+      && needs.changes.outputs.build != 'false' && github.event_name != 'schedule' }}
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
       # A check:versions task reads a pull request that changes a manifest
@@ -146,7 +173,14 @@ jobs:
         timeout-minutes: 15
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          OP_TEST_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_TEST_SERVICE_ACCOUNT_TOKEN }}
         run: mise run check
+      - name: Run live
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          OP_TEST_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_TEST_SERVICE_ACCOUNT_TOKEN }}
+        run: mise run live
       # Only a run on the default branch saves: a pull request, a merge group
       # and a run on another branch restore and never write, so no entry
       # another run restores comes from unreviewed code. A merge group's
@@ -177,7 +211,7 @@ jobs:
   verify:
     name: Verify
     needs: [changes, build]
-    if: ${{ always() && !github.event.pull_request.draft }}
+    if: ${{ always() && !github.event.pull_request.draft && github.event_name != 'schedule' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 2
     # Reads this run and its newer runs.
