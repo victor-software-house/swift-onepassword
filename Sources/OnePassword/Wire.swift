@@ -27,7 +27,7 @@ enum Wire {
         do {
             return try decoder.decode(type, from: json)
         } catch {
-            throw OnePasswordError(kind: .other, message: "the reply could not be decoded")
+            throw OnePasswordError(kind: .decoding, message: "the reply could not be decoded")
         }
     }
 

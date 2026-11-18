@@ -46,13 +46,70 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
         public let fieldType: String
         public let value: String
         public let sectionId: String?
+        /// The public key of an `SshKey` field, from the SDK's `details.content.publicKey`; nil when the
+        /// field has no details or they hold no public key.
+        public let publicKey: String?
 
-        public init(id: String, title: String, fieldType: String, value: String, sectionId: String? = nil) {
+        public init(
+            id: String, title: String, fieldType: String, value: String, sectionId: String? = nil,
+            publicKey: String? = nil
+        ) {
             self.id = id
             self.title = title
             self.fieldType = fieldType
             self.value = value
             self.sectionId = sectionId
+            self.publicKey = publicKey
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, title, fieldType, value, sectionId, details
+        }
+
+        private enum DetailsKeys: String, CodingKey {
+            case type, content
+        }
+
+        private enum ContentKeys: String, CodingKey {
+            case publicKey
+        }
+
+        // Go writes the details of a field as {"type": ..., "content": {...}}, and the content of
+        // an SshKey field as null when it holds nothing. Only an SshKey field's details are read,
+        // so a field of another type costs nothing extra.
+        public init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            id = try values.decode(String.self, forKey: .id)
+            title = try values.decode(String.self, forKey: .title)
+            fieldType = try values.decode(String.self, forKey: .fieldType)
+            value = try values.decode(String.self, forKey: .value)
+            sectionId = try values.decodeIfPresent(String.self, forKey: .sectionId)
+            if fieldType == "SshKey", values.contains(.details), try !values.decodeNil(forKey: .details) {
+                let details = try values.nestedContainer(keyedBy: DetailsKeys.self, forKey: .details)
+                if details.contains(.content), try !details.decodeNil(forKey: .content) {
+                    let content = try details.nestedContainer(keyedBy: ContentKeys.self, forKey: .content)
+                    publicKey = try content.decodeIfPresent(String.self, forKey: .publicKey)
+                } else {
+                    publicKey = nil
+                }
+            } else {
+                publicKey = nil
+            }
+        }
+
+        public func encode(to encoder: any Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            try values.encode(id, forKey: .id)
+            try values.encode(title, forKey: .title)
+            try values.encode(fieldType, forKey: .fieldType)
+            try values.encode(value, forKey: .value)
+            try values.encodeIfPresent(sectionId, forKey: .sectionId)
+            if let publicKey {
+                var details = values.nestedContainer(keyedBy: DetailsKeys.self, forKey: .details)
+                try details.encode(fieldType, forKey: .type)
+                var content = details.nestedContainer(keyedBy: ContentKeys.self, forKey: .content)
+                try content.encode(publicKey, forKey: .publicKey)
+            }
         }
     }
 

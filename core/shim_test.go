@@ -133,6 +133,11 @@ func TestSDKErrorsMapToKinds(t *testing.T) {
 	}{
 		"rate limited":         {&onepassword.RateLimitExceededError{}, kindRateLimited},
 		"wrapped rate limited": {fmt.Errorf("call failed: %w", &onepassword.RateLimitExceededError{}), kindRateLimited},
+		"refused token":        {errors.New("bad service account token, please rotate it: 401"), kindAuthentication},
+		"not authenticated":    {errors.New("you are not authenticated"), kindAuthentication},
+		"wrapped unauthorized": {fmt.Errorf("call failed: %w", errors.New("you are not authenticated")), kindAuthentication},
+		"no permission":        {errors.New("you don't have the right permissions to access this resource"), kindOther},
+		"network error":        {errors.New("dial tcp: lookup my.1password.com: no such host"), kindOther},
 		"other":                {errors.New("boom"), kindOther},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -140,6 +145,53 @@ func TestSDKErrorsMapToKinds(t *testing.T) {
 				return nil, tc.err
 			}}})
 			wantKind(t, call(handle, `{"method":"vaults.list"}`), tc.kind)
+		})
+	}
+}
+
+// NewClient wraps the core's error in "error initializing client: %w", so the messages carry that prefix.
+func TestOpenErrorsMapToKinds(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err  error
+		kind string
+	}{
+		"malformed token": {
+			fmt.Errorf("error initializing client: %w", errors.New("invalid user input: encountered the following errors: service account token had invalid format")),
+			kindAuthentication,
+		},
+		"unusable token": {
+			fmt.Errorf("error initializing client: %w", errors.New("invalid service account token, please make sure you provide a valid service account token as parameter: x")),
+			kindAuthentication,
+		},
+		"refused token": {
+			fmt.Errorf("error initializing client: %w", errors.New("bad service account token, please rotate it: 401")),
+			kindAuthentication,
+		},
+		"not authenticated": {
+			fmt.Errorf("error initializing client: %w", errors.New("authentication error: you are not authenticated")),
+			kindAuthentication,
+		},
+		"network error": {
+			fmt.Errorf("error initializing client: %w", errors.New("authentication error: dial tcp: lookup my.1password.com: no such host")),
+			kindOther,
+		},
+		"request timeout": {
+			fmt.Errorf("error initializing client: %w", errors.New("request timeout")),
+			kindOther,
+		},
+		"context deadline": {
+			fmt.Errorf("error initializing client: %w", context.DeadlineExceeded),
+			kindOther,
+		},
+		"rate limited": {
+			fmt.Errorf("error initializing client: %w", &onepassword.RateLimitExceededError{}),
+			kindRateLimited,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := kindOf(tc.err); got != tc.kind {
+				t.Fatalf("kindOf(%q) = %s, want %s", tc.err, got, tc.kind)
+			}
 		})
 	}
 }

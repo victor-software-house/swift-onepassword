@@ -33,7 +33,7 @@ do throws(OnePasswordError) {
         }
     }
 } catch {
-    // `error.kind` is `.authentication`, `.rateLimited` or `.other`; the message never holds the token.
+    // `error.kind` is `.authentication`, `.rateLimited`, `.decoding` or `.other`; the message never holds the token.
     print(error)
 }
 ```

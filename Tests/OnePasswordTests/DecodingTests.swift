@@ -49,6 +49,42 @@ struct DecodingTests {
         #expect(item.fields[2].value == "git.example.com")
     }
 
+    @Test func publicKeyComesFromTheDetailsOfAnSshKeyField() throws {
+        let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-ssh-key"))
+        let fields = try #require(reply.result).fields
+
+        #expect(fields[0].publicKey == "ssh-ed25519 AAAAFAKEFAKEFAKEFAKE fake-key-for-tests")
+        // No details.
+        #expect(fields[1].publicKey == nil)
+        #expect(fields[2].publicKey == nil)
+    }
+
+    @Test func fieldsWithoutAnSshKeyHaveNoPublicKey() throws {
+        let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-field-details"))
+        let fields = try #require(reply.result).fields
+
+        // Details of another type, an SshKey field whose content is null, and no details.
+        #expect(fields.map(\.id) == ["otp", "empty_key", "no_details"])
+        #expect(fields.map(\.publicKey) == [nil, nil, nil])
+    }
+
+    @Test func fieldRoundTripsItsPublicKey() throws {
+        let field = Item.Field(
+            id: "k", title: "k", fieldType: "SshKey", value: "v", sectionId: "s", publicKey: "ssh-ed25519 AAAA")
+        let data = try JSONEncoder().encode(field)
+
+        #expect(try JSONDecoder().decode(Item.Field.self, from: data) == field)
+    }
+
+    @Test func aReplyThatDoesNotDecodeIsADecodingError() {
+        let error = #expect(throws: OnePasswordError.self) {
+            _ = try Wire.decode(Wire.Reply<Item>.self, from: Data(#"{"result": {"id": 1}}"#.utf8))
+        }
+
+        #expect(error?.kind == .decoding)
+        #expect(error?.message == "the reply could not be decoded")
+    }
+
     @Test func nullSlicesReadAsEmpty() throws {
         let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-no-sections"))
         let item = try #require(reply.result)
@@ -61,6 +97,7 @@ struct DecodingTests {
         let reply = try Wire.decode(Wire.Reply<[VaultOverview]>.self, from: fixture("error-rate-limited"))
 
         #expect(reply.error?.error.kind == .rateLimited)
+        #expect(Wire.Failure(kind: "authentication", message: "x").error.kind == .authentication)
         #expect(Wire.Failure(kind: "badRequest", message: "x").error.kind == .other)
         #expect(Wire.Failure(kind: "unknownHandle", message: "x").error.kind == .other)
     }
