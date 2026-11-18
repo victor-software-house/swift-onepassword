@@ -54,12 +54,17 @@ jobs:
           workflow=${WORKFLOW%@*}
           gh workflow run "${workflow##*/}" --repo "$REPOSITORY" --ref main
 
-# Whether a pull request changes anything the build reads. Documentation is
+  # Whether a pull request changes anything the build reads. Documentation is
   # the root's Markdown files, docs/, and openspec/. A documentation file
   # still counts as a build input when a Swift source names its path.
   changes:
     name: Changes
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    # It runs on a pull request and a merge group: a merge group compares its
+    # head with its base, so a group of documentation-only pull requests skips
+    # the build in the queue too.
+    if: >-
+      ${{ !github.event.pull_request.draft && github.event_name != 'push'
+      && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 3
     permissions:
@@ -72,6 +77,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # A merge group diffs with git from its base commit, which a job
+          # with no credentials cannot fetch later in a private repository,
+          # so its checkout takes the whole history. The '0' is a string, so
+          # the || does not drop it.
+          fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}
       - name: Detect changed paths
         id: filter
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -112,14 +122,17 @@ jobs:
   build:
     name: Build and test
     needs: changes
-    # A documentation-only pull request skips the build. The Changes job is
-    # skipped on a merge group, a push and a dispatch, and its output is then
+    # A documentation-only pull request or merge group skips the build. The
+    # Changes job is skipped on a push and a dispatch, and its output is then
     # empty, so the build runs there, and when Changes itself failed.
     if: >-
       ${{ !cancelled() && !github.event.pull_request.draft
       && needs.changes.outputs.build != 'false' && github.event_name != 'schedule' }}
     runs-on: xcode-27
     timeout-minutes: 45
+    outputs:
+      cache-saved: >-
+        ${{ steps.cache_save.outcome == 'success' }}
     permissions:
       contents: read
       # A check:versions task reads a pull request that changes a manifest
@@ -140,20 +153,33 @@ jobs:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
           version: 2026.11.6
+          # Only a run on the default branch writes the tools cache, as with
+          # the build caches below, so a pull request or a merge group adds no
+          # entry of its own.
+          cache_save: >-
+            ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       # The key names the toolchain: the Swift of the runner's Xcode on macOS,
       # or the one mise installs. The first line of swift --version carries the
       # compiler's build, so a cache never crosses toolchains.
       - name: Read the Swift version
         id: toolchain
         shell: bash
+        env:
+          MANIFESTS: ${{ hashFiles('**/Package.swift', '**/Package.resolved', '!.build/**') }}
         run: |
           version=$(mise x -- swift --version 2>&1 | head -n 1 | tr -c 'A-Za-z0-9.' '-')
-          echo "version=$version" >>"$GITHUB_OUTPUT"
+          {
+            echo "version=$version"
+            echo "prefix=swift-$RUNNER_OS-$RUNNER_ARCH-$version-"
+            echo "manifests=$MANIFESTS"
+          } >>"$GITHUB_OUTPUT"
       # .build holds the dependency checkouts and the build products; SwiftPM's
       # shared cache holds the repositories and manifests it clones, under
       # ~/Library/Caches on macOS and ~/.cache on Linux. The key hashes the
       # package manifests and resolved versions, leaving out .build, whose
-      # checkouts hold manifests of their own.
+      # checkouts hold manifests of their own, and ends in the run: a run on
+      # the default branch saves a fresh entry, and every run restores the
+      # newest, with the same manifests first and any manifests after that.
       - name: Restore the SwiftPM and build caches
         id: cache
         continue-on-error: true
@@ -164,11 +190,11 @@ jobs:
             .build
             ~/Library/Caches/org.swift.swiftpm
             ~/.cache/org.swift.swiftpm
-          key: "swift-${{ runner.os }}-${{ runner.arch }}-\
-            ${{ steps.toolchain.outputs.version }}-\
-            ${{ hashFiles('**/Package.swift', '**/Package.resolved', '!.build/**') }}"
-          restore-keys: "swift-${{ runner.os }}-${{ runner.arch }}-\
-            ${{ steps.toolchain.outputs.version }}-"
+          key: "${{ steps.toolchain.outputs.prefix }}${{ steps.toolchain.outputs.manifests }}-\
+            ${{ github.run_id }}-${{ github.run_attempt }}"
+          restore-keys: |
+            ${{ steps.toolchain.outputs.prefix }}${{ steps.toolchain.outputs.manifests }}-
+            ${{ steps.toolchain.outputs.prefix }}
       - name: Run check
         timeout-minutes: 15
         env:
@@ -191,9 +217,8 @@ jobs:
       # The key is the one the restore computed: hashing the manifests again
       # here would also read the checkouts the build left in .build.
       - name: Save the SwiftPM and build caches
-        if: >-
-          steps.cache.outputs.cache-hit != 'true'
-          && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        id: cache_save
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         continue-on-error: true
         timeout-minutes: 5
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
@@ -203,6 +228,34 @@ jobs:
             ~/Library/Caches/org.swift.swiftpm
             ~/.cache/org.swift.swiftpm
           key: ${{ steps.cache.outputs.cache-primary-key }}
+
+  # Each cache key ends in the run, so a run on the default branch that saved
+  # leaves one entry of each cache: this job deletes the older ones, newest
+  # kept. Only a run on the default branch saves, so only such a run needs
+  # the permission to delete.
+  prune:
+    name: Prune superseded caches
+    needs: build
+    if: >-
+      ${{ needs.build.outputs.cache-saved == 'true'
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 3
+    permissions:
+      actions: write
+    steps:
+      - name: Delete the superseded entries
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for prefix in swift-; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key "$prefix" \
+              --limit 100 --json id,createdAt --jq 'sort_by(.createdAt) | reverse | .[1:][].id' |
+              while IFS= read -r id; do
+                gh cache delete "$id" --repo "$GITHUB_REPOSITORY"
+              done
+          done
 
   # The one check a ruleset requires: it reports on every pull request and
   # merge queue run, and fails when the build failed or was cancelled. A build
