@@ -3,7 +3,7 @@
 # first run and checks against the hash below. Every alert level is shown,
 # and an alert at fail_level or above fails the check.
 level: suggestion
-fail_level: error
+fail_level: suggestion
 # The pre-push hook passes every pushed file, and a file no glob selects is
 # not prose, so it draws no warning.
 on_unmatched: ignore

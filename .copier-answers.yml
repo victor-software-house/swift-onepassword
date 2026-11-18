@@ -29,7 +29,7 @@ platforms:
 - linux-x64
 - macos-arm64
 project: swift-package
-prose_fail_level: error
+prose_fail_level: suggestion
 repository_visibility: public
 verify_timeout: 15
 workflow_policy:
