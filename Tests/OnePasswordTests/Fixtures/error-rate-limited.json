@@ -1,6 +1,6 @@
 {
   "error": {
-    "kind": "rateLimited",
+    "code": "rateLimited",
     "message": "rate limit exceeded"
   }
 }

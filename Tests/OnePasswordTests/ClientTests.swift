@@ -8,25 +8,25 @@ import Testing
 /// raises the process's memory, which would disturb the loop that watches it.
 @Suite(.serialized)
 struct ClientTests {
-    @Test func malformedTokenIsAnAuthenticationError() async {
+    @Test func malformedTokenIsAnAuthenticationFailure() async {
         let token = "malformed-token-sentinel"
         let error = await #expect(throws: OnePasswordError.self) {
             _ = try await Client(token: token, integrationName: "swift-onepassword-tests", integrationVersion: "0")
         }
 
-        #expect(error?.kind == .authentication)
+        #expect(error?.code == .authenticationFailed)
         #expect(error?.message.contains(token) == false)
     }
 
-    @Test func aHandleNoClientHoldsGivesATypedError() async {
+    @Test func aHandleNoClientHasGivesATypedError() async {
         let client = Client(handle: 1 << 40)
 
         let vaults = await #expect(throws: OnePasswordError.self) { try await client.vaults() }
-        let items = await #expect(throws: OnePasswordError.self) { try await client.items(vaultID: "v") }
-        let item = await #expect(throws: OnePasswordError.self) { try await client.item(vaultID: "v", itemID: "i") }
+        let items = await #expect(throws: OnePasswordError.self) { try await client.items(inVault: "v") }
+        let item = await #expect(throws: OnePasswordError.self) { try await client.item("i", inVault: "v") }
 
         for error in [vaults, items, item] {
-            #expect(error?.kind == .other)
+            #expect(error?.code == .requestFailed)
             #expect(error?.message == "no client has this handle")
         }
     }
@@ -52,7 +52,7 @@ struct ClientTests {
                 group.addTask {
                     var count = 0
                     for _ in 0..<100 {
-                        do throws(OnePasswordError) { _ = try await client.vaults() } catch { if error.kind == .other { count += 1 } }
+                        do throws(OnePasswordError) { _ = try await client.vaults() } catch { if error.code == .requestFailed { count += 1 } }
                     }
                     return count
                 }
@@ -63,9 +63,10 @@ struct ClientTests {
         #expect(answered == 64 * 100)
     }
 
-    /// An agent opens one client and keeps it for days, calling it every few minutes. A thousand
-    /// calls on one client, and a thousand failing opens through the core, must leave the resident
-    /// size where it was: a slow leak shows as growth.
+    /// An agent opens one client and keeps it for days, calling it every few minutes.
+    /// A thousand calls on one client must leave the resident size where it was.
+    /// So must a thousand failing opens through the core.
+    /// A slow leak shows as growth.
     @Test func aLongLivedClientKeepsItsMemory() async {
         _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
         let client = Client(handle: 1 << 44)
@@ -85,10 +86,10 @@ struct ClientTests {
         #expect(end - start < 32, "the resident size grew from \(start) to \(end) MiB")
     }
 
-    /// Every reply the core returns is a C string that the client frees with op_free. The malloc
-    /// zones hold C strings, and the Go heap lives apart from them, so a reply left allocated
-    /// raises the bytes in use by its size on each call.
-    @Test func repliesAreFreed() async {
+    /// Every response the core returns is a C string that the client frees with op_free.
+    /// The malloc zones store C strings, and the Go heap lives apart from them.
+    /// So each response left allocated adds its size to the bytes in use.
+    @Test func responsesAreFreed() async {
         let client = Client(handle: 1 << 43)
         for _ in 0..<10_000 { _ = try? await client.vaults() }
         let before = mallocBytesInUse()
@@ -96,8 +97,8 @@ struct ClientTests {
         for _ in 0..<100_000 { _ = try? await client.vaults() }
         let growth = Int64(mallocBytesInUse()) - Int64(before)
 
-        // A reply that is never freed is 76 bytes in an 80-byte block: 8 MB over the loop. The
-        // allocator itself settles within a megabyte.
+        // A response that is never freed is 76 bytes in an 80-byte block: 8 MB over the loop.
+        // The allocator itself settles within a megabyte.
         #expect(growth < 2 << 20, "the malloc zones grew by \(growth) bytes")
     }
 }

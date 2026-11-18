@@ -4,14 +4,14 @@ import Foundation
 @_spi(Benchmarks)
 public enum BenchmarkSupport {
     public static func decodeVaults(_ json: Data) throws(OnePasswordError) -> [VaultOverview] {
-        try Wire.decode(Wire.Reply<[VaultOverview]>.self, from: json).result ?? []
+        try CoreJSON.decode(CoreResponse<[VaultOverview]>.self, from: json).result ?? []
     }
 
     public static func decodeItems(_ json: Data) throws(OnePasswordError) -> [ItemOverview] {
-        try Wire.decode(Wire.Reply<[ItemOverview]>.self, from: json).result ?? []
+        try CoreJSON.decode(CoreResponse<[ItemOverview]>.self, from: json).result ?? []
     }
 
     public static func decodeItem(_ json: Data) throws(OnePasswordError) -> Item? {
-        try Wire.decode(Wire.Reply<Item>.self, from: json).result
+        try CoreJSON.decode(CoreResponse<Item>.self, from: json).result
     }
 }

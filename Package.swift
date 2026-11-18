@@ -16,13 +16,13 @@ let package = Package(
         .library(name: "OnePassword", targets: ["OnePassword"]),
     ],
     targets: [
-        // The Go SDK, built from core/ as a static library. The tag in the url is core- and the
-        // first 12 hex digits of the git tree hash of core/; `mise run core:pin` rewrites the
-        // url and the checksum after the Core workflow publishes the release.
+        // The Go SDK, built from core/ as a static library.
+        // The tag in the url is core- and the first 12 hex digits of the git tree hash of core/.
+        // `mise run core:pin` rewrites the url and the checksum after the Core workflow publishes the release.
         .binaryTarget(
             name: "COnePassword",
-            url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-92966556d452/COnePassword.xcframework.zip",
-            checksum: "7e6684249cc15db7ba588665987ed54ae821f47ffb6c4079674c84d3258872f6"
+            url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-e824066e03c2/COnePassword.xcframework.zip",
+            checksum: "77dcaf9d386120225f81e04aa79ac21e6fada71fd28bf129b39daa5b34ab7250"
         ),
         .target(
             name: "OnePassword",
