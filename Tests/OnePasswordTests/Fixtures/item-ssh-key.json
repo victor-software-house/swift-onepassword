@@ -26,18 +26,6 @@
         "value": "ssh-ed25519 AAAAFAKEFAKEFAKEFAKE fake-key-for-tests"
       },
       {
-        "id": "otp",
-        "title": "one-time password",
-        "fieldType": "Totp",
-        "value": "123456",
-        "details": {
-          "type": "Otp",
-          "content": {
-            "code": "123456"
-          }
-        }
-      },
-      {
         "id": "hosts",
         "title": "hosts",
         "sectionId": "signd",

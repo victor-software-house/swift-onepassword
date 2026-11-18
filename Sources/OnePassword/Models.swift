@@ -66,16 +66,17 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
             case id, title, fieldType, value, sectionId, details
         }
 
-        // Go writes the details of a field as {"type": ..., "content": {...}}, and the content of
-        // an SshKey field as null when it holds nothing.
-        private struct Details: Codable {
-            struct Content: Codable {
-                let publicKey: String?
-            }
-
-            let content: Content?
+        private enum DetailsKeys: String, CodingKey {
+            case type, content
         }
 
+        private enum ContentKeys: String, CodingKey {
+            case publicKey
+        }
+
+        // Go writes the details of a field as {"type": ..., "content": {...}}, and the content of
+        // an SshKey field as null when it holds nothing. Only an SshKey field's details are read,
+        // so a field of another type costs nothing extra.
         public init(from decoder: any Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             id = try values.decode(String.self, forKey: .id)
@@ -83,7 +84,17 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
             fieldType = try values.decode(String.self, forKey: .fieldType)
             value = try values.decode(String.self, forKey: .value)
             sectionId = try values.decodeIfPresent(String.self, forKey: .sectionId)
-            publicKey = try values.decodeIfPresent(Details.self, forKey: .details)?.content?.publicKey
+            if fieldType == "SshKey", values.contains(.details), try !values.decodeNil(forKey: .details) {
+                let details = try values.nestedContainer(keyedBy: DetailsKeys.self, forKey: .details)
+                if details.contains(.content), try !details.decodeNil(forKey: .content) {
+                    let content = try details.nestedContainer(keyedBy: ContentKeys.self, forKey: .content)
+                    publicKey = try content.decodeIfPresent(String.self, forKey: .publicKey)
+                } else {
+                    publicKey = nil
+                }
+            } else {
+                publicKey = nil
+            }
         }
 
         public func encode(to encoder: any Encoder) throws {
@@ -94,7 +105,10 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
             try values.encode(value, forKey: .value)
             try values.encodeIfPresent(sectionId, forKey: .sectionId)
             if let publicKey {
-                try values.encode(Details(content: .init(publicKey: publicKey)), forKey: .details)
+                var details = values.nestedContainer(keyedBy: DetailsKeys.self, forKey: .details)
+                try details.encode(fieldType, forKey: .type)
+                var content = details.nestedContainer(keyedBy: ContentKeys.self, forKey: .content)
+                try content.encode(publicKey, forKey: .publicKey)
             }
         }
     }
