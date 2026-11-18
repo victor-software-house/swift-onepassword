@@ -1,5 +1,14 @@
 # Changelog
 
+## swift-onepassword 0.0.3
+
+- - `OnePasswordError` has a `code`: `authenticationFailed`, `rateLimited`, `invalidResponse` or `requestFailed`.  
+    It conforms to `Equatable` and `LocalizedError`.
+  - `ItemCategory`, `ItemState` and `FieldType` replace the strings in `category`, `state` and `Item.Field.type`.  
+    Each is an open set with constants such as `.sshKey`, and a value the SDK adds later still decodes.
+  - The identifier properties are `vaultID` and `sectionID`.
+  - The methods are `vaults()`, `items(inVault:)` and `item(_:inVault:)` ([`e49277a`](https://github.com/victor-software-house/swift-onepassword/commit/e49277a2b1596c239b7637a9fa0dde2e5cb6fa8c)).
+
 ## swift-onepassword 0.0.2
 
 - - `OnePasswordError.Kind.authentication` means 1Password refused the token or did not authenticate the request, such as a token revoked after the client opened.  
