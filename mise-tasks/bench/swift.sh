@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Run the Swift benchmarks once, print the numbers, and fail when one is worse than its committed threshold; macOS only"
-# Benchmarks/Thresholds holds the p90 of each benchmark on the CI runner. One run is stored as the
+# Benchmarks/Thresholds holds the p90 of each benchmark's allocation counts, leaked bytes and resident
+# peak on the CI runner; the times are printed without a threshold. One run is stored as the
 # baseline named run, and the numbers and the threshold check both read it, so nothing runs twice.
 # build/bench/ keeps the two tables for the job summary. `update` writes new thresholds from that
 # baseline, so it follows a `check`.

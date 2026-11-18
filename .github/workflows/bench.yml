@@ -3,7 +3,8 @@ name: Benchmarks
 # Times the Go shim and the Swift module on GitHub-hosted macOS runners, in two jobs that run in
 # parallel. Each posts its numbers in the job summary. The Swift job fails when a benchmark is worse
 # than its threshold in Benchmarks/Thresholds; a benchmark that is better passes. Those thresholds
-# are the p90 of each benchmark on this runner type. The Swift benchmarks run once. A failed check, or
+# are the p90 of the allocation counts, leaked bytes and resident peak on this runner type; the times
+# of a shared runner vary too much for one, so they are printed only. The Swift benchmarks run once. A failed check, or
 # a manual run, writes new thresholds from that run, uploaded as the thresholds artifact, to commit
 # under Benchmarks/Thresholds when a change makes a benchmark slower on purpose.
 #
