@@ -2,13 +2,16 @@
 #MISE description="Run the Swift benchmarks once, print the numbers, and fail when one is worse than its committed threshold; macOS only"
 # Benchmarks/Thresholds holds the p90 of each benchmark on the CI runner. One run is stored as the
 # baseline named run, and the numbers and the threshold check both read it, so nothing runs twice.
-# The tool shows its progress for each benchmark while it runs, in CI too. build/bench/ keeps the two
-# tables for the job summary. `update` runs the benchmarks again and writes new thresholds.
+# build/bench/ keeps the two tables for the job summary. `update` writes new thresholds from that
+# baseline, so it follows a `check`.
 #
-# The tool prints in blocks unless its output is a terminal, so the run goes through script, which
-# gives it one. A benchmark that is better than its threshold by more than the allowed percentage
-# makes the plugin fail with the error benchmarkThresholdImprovement, which swift reports as exit
-# status 1, like a regression, so the check reads the error's name from its stderr.
+# The package's benchmark plugin builds the benchmark tool again on every call, about 40 s each. The
+# first call builds the tool and the benchmarks, runs them and stores the baseline; the numbers and
+# the check then run the tool it built, with the arguments the plugin passes in 1.38.2. The run goes
+# through script, which gives the tool a terminal; with a pipe it prints in blocks, and the progress
+# of a benchmark reaches the log only when the run ends. The tool exits 0 when every benchmark is
+# within its threshold, 4 when one is better, 2 when one is worse, and 1 or 3 on a failure; a better
+# benchmark passes.
 set -euo pipefail
 root=${MISE_PROJECT_ROOT:?}
 cd "$root/Benchmarks"
@@ -17,21 +20,31 @@ shift || true
 out=$root/build/bench
 mkdir -p "$out"
 
+# The release build of an executable the plugin made, by name.
+built() { find .build -type f -name "$1" -perm -u+x -ipath '*release*' -not -path '*/checkouts/*' -not -path '*.dSYM/*' | head -n 1; }
+args=(--baseline-storage-path "$PWD" --grouping benchmark --benchmark-package-identifier benchmark --targets OnePasswordBenchmarks)
+
 case "$mode" in
   check)
-    script -q /dev/null swift package --allow-writing-to-directory .benchmarkBaselines/ benchmark baseline update run "$@"
-    swift package benchmark baseline read run --format markdown | tee "$out/numbers.md"
+    script -q /dev/null swift package --force-resolved-versions --allow-writing-to-directory .benchmarkBaselines/ benchmark baseline update run "$@"
+    tool=$(built BenchmarkTool)
+    exe=$(built OnePasswordBenchmarks)
+    "$tool" --command baseline --baseline-operation read --baseline run --format markdown "${args[@]}" \
+      | tee "$out/numbers.md"
     status=0
-    swift package benchmark thresholds check run --format markdown 2>"$out/check.err" | tee "$out/check.md" || status=$?
-    cat "$out/check.err" >&2
-    if [ "$status" -ne 0 ] && grep -qx 'error: benchmarkThresholdImprovement' "$out/check.err"; then
-      echo "▲ a benchmark is better than its threshold; commit new thresholds to tighten the gate"
-      status=0
-    fi
-    exit "$status"
+    "$tool" --command thresholds --thresholds-operation check --baseline run --format markdown "${args[@]}" \
+      --benchmark-executable-paths "$exe" | tee "$out/check.md" || status=$?
+    case "$status" in
+      0) ;;
+      4) echo "▲ a benchmark is better than its threshold; commit new thresholds to tighten the gate" ;;
+      *) exit "$status" ;;
+    esac
     ;;
   update)
-    script -q /dev/null swift package --allow-writing-to-package-directory benchmark thresholds update "$@"
+    tool=$(built BenchmarkTool)
+    exe=$(built OnePasswordBenchmarks)
+    "$tool" --command thresholds --thresholds-operation update --baseline run --format text "${args[@]}" \
+      --benchmark-executable-paths "$exe"
     ;;
   *)
     echo "usage: bench:swift [check|update]" >&2
