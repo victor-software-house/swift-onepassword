@@ -110,6 +110,18 @@ public struct ItemOverview: Codable, Sendable, Hashable, Identifiable {
         case id, title, category, updatedAt, state
         case vaultID = "vaultId"
     }
+
+    // Reading the category and the state as strings costs fewer allocations than decoding each
+    // through its own single value container.
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        title = try values.decode(String.self, forKey: .title)
+        category = ItemCategory(rawValue: try values.decode(String.self, forKey: .category))
+        vaultID = try values.decode(String.self, forKey: .vaultID)
+        updatedAt = try values.decode(Date.self, forKey: .updatedAt)
+        state = ItemState(rawValue: try values.decode(String.self, forKey: .state))
+    }
 }
 
 public struct Item: Codable, Sendable, Hashable, Identifiable {
