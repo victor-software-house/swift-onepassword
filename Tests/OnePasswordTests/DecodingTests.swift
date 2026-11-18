@@ -96,12 +96,12 @@ struct DecodingTests {
     @Test func errorCodesMap() throws {
         let response = try CoreJSON.decode(CoreResponse<[VaultOverview]>.self, from: fixture("error-rate-limited"))
 
-        #expect(response.error?.error.code == .rateLimited)
-        #expect(CoreError(code: "authenticationFailed", message: "x").error.code == .authenticationFailed)
-        #expect(CoreError(code: "requestFailed", message: "x").error.code == .requestFailed)
-        #expect(CoreError(code: "invalidRequest", message: "x").error.code == .requestFailed)
-        #expect(CoreError(code: "unknownClient", message: "x").error.code == .requestFailed)
-        #expect(CoreError(code: "somethingNew", message: "x").error.code == .requestFailed)
+        #expect(response.error?.onePasswordError.code == .rateLimited)
+        #expect(CoreError(code: "authenticationFailed", message: "x").onePasswordError.code == .authenticationFailed)
+        #expect(CoreError(code: "requestFailed", message: "x").onePasswordError.code == .requestFailed)
+        #expect(CoreError(code: "invalidRequest", message: "x").onePasswordError.code == .requestFailed)
+        #expect(CoreError(code: "unknownClient", message: "x").onePasswordError.code == .requestFailed)
+        #expect(CoreError(code: "somethingNew", message: "x").onePasswordError.code == .requestFailed)
     }
 
     @Test func requestIsJSON() throws {

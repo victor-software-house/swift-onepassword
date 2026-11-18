@@ -31,7 +31,7 @@ struct CoreError: Decodable {
 
     /// A code that this module does not know reads as `requestFailed`, which includes the core's
     /// `unknownClient` and `invalidRequest`.
-    var error: OnePasswordError {
+    var onePasswordError: OnePasswordError {
         OnePasswordError(code: OnePasswordError.Code(rawValue: code) ?? .requestFailed, message: message)
     }
 }

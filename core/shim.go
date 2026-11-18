@@ -23,7 +23,7 @@ import (
 // callTimeout bounds each call into the SDK.
 const callTimeout = 60 * time.Second
 
-// Error codes of the JSON error object.
+// Error codes of a response.
 const (
 	codeAuthenticationFailed = "authenticationFailed"
 	codeRateLimited          = "rateLimited"
@@ -38,7 +38,7 @@ var (
 	next    uint64
 )
 
-type errorObject struct {
+type responseError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
@@ -46,7 +46,7 @@ type errorObject struct {
 type response struct {
 	Handle *uint64         `json:"handle,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`
-	Error  *errorObject    `json:"error,omitempty"`
+	Error  *responseError  `json:"error,omitempty"`
 }
 
 type request struct {
@@ -64,7 +64,7 @@ func encode(res response) string {
 }
 
 func fail(code, message string) string {
-	return encode(response{Error: &errorObject{Code: code, Message: message}})
+	return encode(response{Error: &responseError{Code: code, Message: message}})
 }
 
 // safely turns a panic into an error response.
@@ -104,7 +104,7 @@ var refusedTokenMessages = [...]string{
 	"you are not authenticated",
 }
 
-// codeOf maps an SDK error to the code of the JSON error object.
+// codeOf maps an SDK error to the code of a response error.
 func codeOf(err error) string {
 	var limited *onepassword.RateLimitExceededError
 	if errors.As(err, &limited) {

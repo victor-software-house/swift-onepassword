@@ -21,7 +21,7 @@ public final class Client: Sendable {
             }
         }
         let response = try CoreJSON.decode(CoreResponse<Never>.self, from: json)
-        if let error = response.error { throw error.error }
+        if let error = response.error { throw error.onePasswordError }
         guard let handle = response.handle else {
             throw OnePasswordError(code: .requestFailed, message: "the client did not return a handle")
         }
@@ -69,7 +69,7 @@ public final class Client: Sendable {
             }
         }
         let response = try CoreJSON.decode(CoreResponse<Value>.self, from: json)
-        if let error = response.error { throw error.error }
+        if let error = response.error { throw error.onePasswordError }
         return response.result
     }
 
