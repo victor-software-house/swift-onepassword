@@ -2,8 +2,8 @@
 min_version = "2026.11.6"
 
 [settings]
-# Every tool, whether a config file, a task or the command line asks for it,
-# comes from the locks; one with no entry fails instead of being looked up.
+# Every tool comes from the locks, whether a config file, a task or the command
+# line needs it. A tool with no entry fails instead of being looked up.
 locked = true
 # mise loads git:: task includes, and runs [deps] providers, only in
 # experimental mode.
@@ -18,9 +18,9 @@ lockfile_platforms = ["linux-x64", "macos-arm64"]
 [tool_config]
 locked = true
 
-# mise-tasks/ holds this repository's task fragments and file tasks. An
-# includes list replaces the default task dirs, so mise-tasks comes first; add
-# pinned git:: catalogs after it.
+# mise-tasks/ contains this repository's task fragments and file tasks.
+# An includes list replaces the default task dirs, so mise-tasks comes first.
+# Add pinned git:: catalogs after it.
 [task_config]
 includes = [
   # Pinned git:: catalogs follow mise-tasks.
