@@ -26,8 +26,8 @@ func TestMain(m *testing.M) {
 		start := time.Now()
 		out := open("malformed-token", "shim-test", "0")
 		elapsed := time.Since(start)
-		if !strings.Contains(out, `"kind":"authentication"`) {
-			fmt.Fprintln(os.Stderr, "a malformed token did not give the authentication kind")
+		if !strings.Contains(out, `"code":"authenticationFailed"`) {
+			fmt.Fprintln(os.Stderr, "a malformed token did not give the authenticationFailed code")
 			os.Exit(1)
 		}
 		fmt.Println(elapsed.Nanoseconds())
@@ -57,31 +57,31 @@ func register(tb testing.TB, client *onepassword.Client) uint64 {
 	return handle
 }
 
-func parse(tb testing.TB, out string) reply {
+func parse(tb testing.TB, out string) response {
 	tb.Helper()
-	var r reply
-	if err := json.Unmarshal([]byte(out), &r); err != nil {
-		tb.Fatalf("reply %q is not JSON: %v", out, err)
+	var res response
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		tb.Fatalf("response %q is not JSON: %v", out, err)
 	}
-	return r
+	return res
 }
 
-func wantKind(t *testing.T, out, kind string) {
+func wantCode(t *testing.T, out, code string) {
 	t.Helper()
-	r := parse(t, out)
-	if r.Error == nil || r.Error.Kind != kind {
-		t.Fatalf("reply %s: want error kind %s", out, kind)
+	res := parse(t, out)
+	if res.Error == nil || res.Error.Code != code {
+		t.Fatalf("response %s: want error code %s", out, code)
 	}
 }
 
 func TestUnknownHandle(t *testing.T) {
-	wantKind(t, call(1<<40, `{"method":"vaults.list"}`), kindUnknownHandle)
+	wantCode(t, call(1<<40, `{"method":"vaults.list"}`), codeUnknownClient)
 }
 
 func TestClosedHandleGivesTheTypedError(t *testing.T) {
 	handle := register(t, &onepassword.Client{})
 	closeClient(handle)
-	wantKind(t, call(handle, `{"method":"vaults.list"}`), kindUnknownHandle)
+	wantCode(t, call(handle, `{"method":"vaults.list"}`), codeUnknownClient)
 	closeClient(handle) // a second close is harmless
 }
 
@@ -95,7 +95,7 @@ func TestBadRequests(t *testing.T) {
 		"items.get no vault":  `{"method":"items.get","itemId":"i"}`,
 		"empty request":       ``,
 	} {
-		t.Run(name, func(t *testing.T) { wantKind(t, call(handle, req), kindBadRequest) })
+		t.Run(name, func(t *testing.T) { wantCode(t, call(handle, req), codeInvalidRequest) })
 	}
 }
 
@@ -105,16 +105,16 @@ func TestVaultsListResult(t *testing.T) {
 		return []onepassword.VaultOverview{{ID: "v1", Title: "SSH keys", ContentVersion: 41, UpdatedAt: updated}}, nil
 	}}})
 
-	r := parse(t, call(handle, `{"method":"vaults.list"}`))
-	if r.Error != nil {
-		t.Fatalf("unexpected error %+v", r.Error)
+	res := parse(t, call(handle, `{"method":"vaults.list"}`))
+	if res.Error != nil {
+		t.Fatalf("unexpected error %+v", res.Error)
 	}
 	var vaults []struct {
 		ID             string `json:"id"`
 		ContentVersion uint32 `json:"contentVersion"`
 		UpdatedAt      string `json:"updatedAt"`
 	}
-	if err := json.Unmarshal(r.Result, &vaults); err != nil {
+	if err := json.Unmarshal(res.Result, &vaults); err != nil {
 		t.Fatal(err)
 	}
 	if len(vaults) != 1 || vaults[0].ID != "v1" || vaults[0].ContentVersion != 41 {
@@ -126,71 +126,71 @@ func TestVaultsListResult(t *testing.T) {
 	}
 }
 
-func TestSDKErrorsMapToKinds(t *testing.T) {
+func TestSDKErrorsMapToCodes(t *testing.T) {
 	for name, tc := range map[string]struct {
 		err  error
-		kind string
+		code string
 	}{
-		"rate limited":         {&onepassword.RateLimitExceededError{}, kindRateLimited},
-		"wrapped rate limited": {fmt.Errorf("call failed: %w", &onepassword.RateLimitExceededError{}), kindRateLimited},
-		"refused token":        {errors.New("bad service account token, please rotate it: 401"), kindAuthentication},
-		"not authenticated":    {errors.New("you are not authenticated"), kindAuthentication},
-		"wrapped unauthorized": {fmt.Errorf("call failed: %w", errors.New("you are not authenticated")), kindAuthentication},
-		"no permission":        {errors.New("you don't have the right permissions to access this resource"), kindOther},
-		"network error":        {errors.New("dial tcp: lookup my.1password.com: no such host"), kindOther},
-		"other":                {errors.New("boom"), kindOther},
+		"rate limited":         {&onepassword.RateLimitExceededError{}, codeRateLimited},
+		"wrapped rate limited": {fmt.Errorf("call failed: %w", &onepassword.RateLimitExceededError{}), codeRateLimited},
+		"refused token":        {errors.New("bad service account token, please rotate it: 401"), codeAuthenticationFailed},
+		"not authenticated":    {errors.New("you are not authenticated"), codeAuthenticationFailed},
+		"wrapped unauthorized": {fmt.Errorf("call failed: %w", errors.New("you are not authenticated")), codeAuthenticationFailed},
+		"no permission":        {errors.New("you don't have the right permissions to access this resource"), codeRequestFailed},
+		"network error":        {errors.New("dial tcp: lookup my.1password.com: no such host"), codeRequestFailed},
+		"other":                {errors.New("boom"), codeRequestFailed},
 	} {
 		t.Run(name, func(t *testing.T) {
 			handle := register(t, &onepassword.Client{VaultsAPI: vaultsStub{list: func() ([]onepassword.VaultOverview, error) {
 				return nil, tc.err
 			}}})
-			wantKind(t, call(handle, `{"method":"vaults.list"}`), tc.kind)
+			wantCode(t, call(handle, `{"method":"vaults.list"}`), tc.code)
 		})
 	}
 }
 
 // NewClient wraps the core's error in "error initializing client: %w", so the messages carry that prefix.
-func TestOpenErrorsMapToKinds(t *testing.T) {
+func TestOpenErrorsMapToCodes(t *testing.T) {
 	for name, tc := range map[string]struct {
 		err  error
-		kind string
+		code string
 	}{
 		"malformed token": {
 			fmt.Errorf("error initializing client: %w", errors.New("invalid user input: encountered the following errors: service account token had invalid format")),
-			kindAuthentication,
+			codeAuthenticationFailed,
 		},
 		"unusable token": {
 			fmt.Errorf("error initializing client: %w", errors.New("invalid service account token, please make sure you provide a valid service account token as parameter: x")),
-			kindAuthentication,
+			codeAuthenticationFailed,
 		},
 		"refused token": {
 			fmt.Errorf("error initializing client: %w", errors.New("bad service account token, please rotate it: 401")),
-			kindAuthentication,
+			codeAuthenticationFailed,
 		},
 		"not authenticated": {
 			fmt.Errorf("error initializing client: %w", errors.New("authentication error: you are not authenticated")),
-			kindAuthentication,
+			codeAuthenticationFailed,
 		},
 		"network error": {
 			fmt.Errorf("error initializing client: %w", errors.New("authentication error: dial tcp: lookup my.1password.com: no such host")),
-			kindOther,
+			codeRequestFailed,
 		},
 		"request timeout": {
 			fmt.Errorf("error initializing client: %w", errors.New("request timeout")),
-			kindOther,
+			codeRequestFailed,
 		},
 		"context deadline": {
 			fmt.Errorf("error initializing client: %w", context.DeadlineExceeded),
-			kindOther,
+			codeRequestFailed,
 		},
 		"rate limited": {
 			fmt.Errorf("error initializing client: %w", &onepassword.RateLimitExceededError{}),
-			kindRateLimited,
+			codeRateLimited,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := kindOf(tc.err); got != tc.kind {
-				t.Fatalf("kindOf(%q) = %s, want %s", tc.err, got, tc.kind)
+			if got := codeOf(tc.err); got != tc.code {
+				t.Fatalf("codeOf(%q) = %s, want %s", tc.err, got, tc.code)
 			}
 		})
 	}
@@ -199,18 +199,18 @@ func TestOpenErrorsMapToKinds(t *testing.T) {
 func TestPanicIsRecovered(t *testing.T) {
 	// A client with no APIs makes the SDK call dereference nil.
 	handle := register(t, &onepassword.Client{})
-	r := parse(t, call(handle, `{"method":"vaults.list"}`))
-	if r.Error == nil || r.Error.Kind != kindOther || !strings.Contains(r.Error.Message, "panicked") {
-		t.Fatalf("unexpected reply %+v", r)
+	res := parse(t, call(handle, `{"method":"vaults.list"}`))
+	if res.Error == nil || res.Error.Code != codeRequestFailed || !strings.Contains(res.Error.Message, "panicked") {
+		t.Fatalf("unexpected response %+v", res)
 	}
 }
 
 func TestMalformedTokenIsAuthentication(t *testing.T) {
 	const token = "malformed-token-sentinel"
 	out := open(token, "shim-test", "0")
-	wantKind(t, out, kindAuthentication)
+	wantCode(t, out, codeAuthenticationFailed)
 	if strings.Contains(out, token) {
-		t.Fatalf("the error message holds the token: %s", out)
+		t.Fatalf("the error message contains the token: %s", out)
 	}
 }
 
@@ -226,14 +226,14 @@ func TestConcurrentUse(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for range 200 {
-				if r := parse(t, call(shared, `{"method":"vaults.list"}`)); r.Error != nil {
-					t.Errorf("unexpected error %+v", r.Error)
+				if res := parse(t, call(shared, `{"method":"vaults.list"}`)); res.Error != nil {
+					t.Errorf("unexpected error %+v", res.Error)
 					return
 				}
 				own := register(t, stub)
 				closeClient(own)
-				if r := parse(t, call(own, `{"method":"vaults.list"}`)); r.Error == nil || r.Error.Kind != kindUnknownHandle {
-					t.Errorf("a closed handle answered %+v", r)
+				if res := parse(t, call(own, `{"method":"vaults.list"}`)); res.Error == nil || res.Error.Code != codeUnknownClient {
+					t.Errorf("a closed handle answered %+v", res)
 					return
 				}
 			}
@@ -242,7 +242,7 @@ func TestConcurrentUse(t *testing.T) {
 	wg.Wait()
 }
 
-// A failed call builds one reply, so its allocations stay small and fixed.
+// A failed call builds one response, so its allocations stay small and fixed.
 func TestAllocationsPerCall(t *testing.T) {
 	const bound = 10
 	allocs := testing.AllocsPerRun(1000, func() { call(1<<40, `{"method":"vaults.list"}`) })
@@ -268,7 +268,7 @@ func residentMiB(tb testing.TB) float64 {
 
 type memory struct{ heapMiB, residentMiB float64 }
 
-// snapshot collects garbage first, so the heap is what the program still holds.
+// snapshot collects garbage first, so the heap is what the program still uses.
 func snapshot(tb testing.TB) memory {
 	tb.Helper()
 	runtime.GC()
@@ -277,9 +277,10 @@ func snapshot(tb testing.TB) memory {
 	return memory{heapMiB: float64(stats.HeapAlloc) / (1 << 20), residentMiB: residentMiB(tb)}
 }
 
-// An agent opens one client and keeps it, calling it every few minutes for days. A thousand calls
-// on one client, through the stub clients and through the core with failing opens, must leave the
-// Go heap and the resident size where they were; a slow leak shows as growth.
+// An agent opens one client and keeps it, calling it every few minutes for days.
+// A thousand calls on one client must leave the Go heap and the resident size where they were.
+// The calls go through the stub clients, and through the core with failing opens.
+// A slow leak shows as growth.
 func TestLongLivedClientMemory(t *testing.T) {
 	stub := register(t, &onepassword.Client{VaultsAPI: vaultsStub{list: func() ([]onepassword.VaultOverview, error) {
 		return []onepassword.VaultOverview{{ID: "v1", Title: "SSH keys", ContentVersion: 41}}, nil
