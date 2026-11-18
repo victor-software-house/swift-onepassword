@@ -18,14 +18,21 @@ private func fixture(_ name: String) -> Data {
 }
 
 let benchmarks: @Sendable () -> Void = {
-    // A benchmark name has no space, because `thresholds update` writes a file with each space
-    // turned into an underscore and `thresholds check` reads it under the name as written.
+    // A benchmark name has no space.
+    // `thresholds update` writes a file with each space turned into an underscore.
+    // `thresholds check` reads it under the name as written.
+    //
     // Each benchmark runs in a process of its own, so Client.init-cold is a true cold start.
-    // A threshold fails `thresholds check` when a metric's p90 rises by more than its relative percentage over
-    // the committed value. Only metrics that do not depend on the machine have one: GitHub's shared runners
-    // vary the time of a run by a factor of two or more, so the wall clock is measured and printed without a
-    // threshold. The malloc counts are exact, so their limit is narrow, and the resident peak of a cold
-    // start moves by a quarter between runs, so its limit is wide.
+    //
+    // A threshold fails `thresholds check` when a metric's p90 rises past the committed value
+    // by more than the threshold's percentage.
+    //
+    // Only metrics that do not depend on the machine have one.
+    // One run on GitHub's shared runners can take twice as long as another.
+    // So the wall clock is measured and printed without a threshold.
+    //
+    // The malloc counts are exact, so their limit is narrow.
+    // The resident peak of a cold start moves by a quarter between runs, so its limit is wide.
     let memoryLimit = BenchmarkThresholds(relative: [.p90: 50.0])
     let countLimit = BenchmarkThresholds(relative: [.p90: 5.0])
     let leakLimit = BenchmarkThresholds(absolute: [.p90: 8192])
@@ -57,12 +64,12 @@ let benchmarks: @Sendable () -> Void = {
             scalingFactor: .kilo,
             thresholds: [
                 .mallocCountTotal: countLimit,
-                // A reply left allocated is about 80 bytes a call, 80000 over the 1000 iterations.
+                // A response left allocated is about 80 bytes a call, 80000 over the 1000 iterations.
                 .memoryLeakedBytes: leakLimit,
             ]
         )
     ) { benchmark in
-        // No client holds this handle, so the core answers at once, without 1Password.
+        // No client has this handle, so the core answers at once, without 1Password.
         let client = Client(handle: 1 << 40)
         benchmark.startMeasurement()
         for _ in benchmark.scaledIterations {

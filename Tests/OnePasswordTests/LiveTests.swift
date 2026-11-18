@@ -3,10 +3,12 @@ import Testing
 
 @testable import OnePassword
 
-// These tests read a real 1Password vault with a read-only service account. They run only when
-// OP_TEST_SERVICE_ACCOUNT_TOKEN is set, so a local run and a pull request from a fork skip them.
-// The account reads one vault, "signd test", with one SSH Key item, "test-key". Nothing prints the
-// token or a field value other than hosts: an expectation sees booleans for the key itself.
+// These tests read a real 1Password vault with a read-only service account.
+// They run only when OP_TEST_SERVICE_ACCOUNT_TOKEN is set, so a local run and a pull request from a fork skip them.
+//
+// The account reads one vault, "signd test", with one SSH Key item, "test-key".
+// Nothing prints the token or a field value other than hosts.
+// An expectation sees booleans for the key itself.
 private let token = ProcessInfo.processInfo.environment["OP_TEST_SERVICE_ACCOUNT_TOKEN"] ?? ""
 
 @Suite(.serialized, .enabled(if: !token.isEmpty))
@@ -22,19 +24,19 @@ struct LiveTests {
         let vault = try #require(vaults.first { $0.title == "signd test" })
         #expect(vault.contentVersion > 0)
 
-        let items = try await client.items(vaultID: vault.id)
+        let items = try await client.items(inVault: vault.id)
         let overview = try #require(items.first { $0.title == "test-key" })
-        #expect(overview.category == "SshKey")
-        #expect(overview.state == "active")
+        #expect(overview.category == .sshKey)
+        #expect(overview.state == .active)
 
-        let item = try await client.item(vaultID: vault.id, itemID: overview.id)
-        #expect(item.category == "SshKey")
-        #expect(item.vaultId == vault.id)
+        let item = try await client.item(overview.id, inVault: vault.id)
+        #expect(item.category == .sshKey)
+        #expect(item.vaultID == vault.id)
         let hosts = item.fields.first { $0.title == "hosts" || $0.id == "hosts" }?.value
         #expect(hosts == "example.invalid")
-        let hasPrivateKey = item.fields.contains { $0.fieldType == "SshKey" && !$0.value.isEmpty }
+        let hasPrivateKey = item.fields.contains { $0.type == .sshKey && !$0.value.isEmpty }
         #expect(hasPrivateKey)
-        let publicKey = item.fields.first { $0.fieldType == "SshKey" }?.publicKey
+        let publicKey = item.fields.first { $0.type == .sshKey }?.publicKey
         #expect(publicKey?.hasPrefix("ssh-ed25519 ") == true)
     }
 
@@ -44,16 +46,16 @@ struct LiveTests {
         let client = try await open()
         let vaults = try await client.vaults()
         let vault = try #require(vaults.first { $0.title == "signd test" })
-        let items = try await client.items(vaultID: vault.id)
+        let items = try await client.items(inVault: vault.id)
         let overview = try #require(items.first { $0.title == "test-key" })
-        _ = try await client.item(vaultID: vault.id, itemID: overview.id)
+        _ = try await client.item(overview.id, inVault: vault.id)
 
         let clock = ContinuousClock()
         var listing: [Duration] = []
         var getting: [Duration] = []
         for _ in 0..<20 {
             try await listing.append(clock.measure { _ = try await client.vaults() })
-            try await getting.append(clock.measure { _ = try await client.item(vaultID: vault.id, itemID: overview.id) })
+            try await getting.append(clock.measure { _ = try await client.item(overview.id, inVault: vault.id) })
         }
 
         let report = """

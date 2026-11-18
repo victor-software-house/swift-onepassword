@@ -1,68 +1,14 @@
 import Foundation
 
-/// The JSON the C interface of core/ speaks.
-enum Wire {
-    struct Failure: Decodable {
-        let kind: String
-        let message: String
-
-        var error: OnePasswordError {
-            OnePasswordError(kind: OnePasswordError.Kind(rawValue: kind) ?? .other, message: message)
-        }
-    }
-
-    struct Reply<Payload: Decodable>: Decodable {
-        let handle: UInt64?
-        let result: Payload?
-        let error: Failure?
-    }
-
-    struct Request: Encodable {
-        let method: String
-        var vaultId: String?
-        var itemId: String?
-    }
-
-    static func decode<Value: Decodable>(_ type: Value.Type, from json: Data) throws(OnePasswordError) -> Value {
-        do {
-            return try decoder.decode(type, from: json)
-        } catch {
-            throw OnePasswordError(kind: .decoding, message: "the reply could not be decoded")
-        }
-    }
-
-    static func encode(_ request: Request) -> String {
-        // A request holds only strings, so encoding cannot fail.
-        let data = (try? encoder.encode(request)) ?? Data("{}".utf8)
-        return String(decoding: data, as: UTF8.self)
-    }
-
-    // Foundation's coders are Sendable and safe to share, and building one per call costs more
-    // than a call that fails at once.
-    private static let encoder = JSONEncoder()
-
-    private static let decoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let text = try decoder.singleValueContainer().decode(String.self)
-            guard let date = parseTimestamp(text) else {
-                throw DecodingError.dataCorrupted(
-                    .init(codingPath: decoder.codingPath, debugDescription: "not an RFC 3339 timestamp")
-                )
-            }
-            return date
-        }
-        return decoder
-    }()
-
-    /// Reads Go's time.Time encoding: RFC 3339 with an optional fraction of up to nine digits,
-    /// and `Z` or an offset.
-    static func parseTimestamp(_ text: String) -> Date? {
+enum RFC3339 {
+    /// Reads the RFC 3339 text that Go writes for a time value.
+    /// It has an optional fraction of up to nine digits, and `Z` or an offset.
+    static func date(from text: String) -> Date? {
         var text = text
-        return text.withUTF8 { parseTimestamp($0) }
+        return text.withUTF8 { date(from: $0) }
     }
 
-    private static func parseTimestamp(_ bytes: UnsafeBufferPointer<UInt8>) -> Date? {
+    private static func date(from bytes: UnsafeBufferPointer<UInt8>) -> Date? {
         func number(_ start: Int, _ count: Int) -> Int? {
             var value = 0
             for index in start..<start + count {
@@ -87,7 +33,7 @@ enum Wire {
             var digits = 0
             var value = 0
             while index < bytes.count, (48...57).contains(bytes[index]) {
-                // Nine digits are a nanosecond; later ones change nothing a Double holds.
+                // Nine digits are a nanosecond; later ones change nothing a Double can keep.
                 if digits < 9 {
                     value = value * 10 + Int(bytes[index]) - 48
                     digits += 1

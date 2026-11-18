@@ -10,48 +10,48 @@ struct DecodingTests {
     }
 
     @Test func vaultList() throws {
-        let reply = try Wire.decode(Wire.Reply<[VaultOverview]>.self, from: fixture("vault-list"))
-        let vaults = try #require(reply.result)
+        let response = try CoreJSON.decode(CoreResponse<[VaultOverview]>.self, from: fixture("vault-list"))
+        let vaults = try #require(response.result)
 
         #expect(vaults.map(\.title) == ["SSH keys", "Other"])
         #expect(vaults[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaa")
         #expect(vaults[0].contentVersion == 41)
-        // Nine fractional digits, as Go writes a time.Time.
+        // Nine fractional digits, as Go writes a time value.
         #expect(abs(vaults[0].updatedAt.timeIntervalSince1970 - 1_794_918_645.123456789) < 0.001)
         // An offset instead of Z.
         #expect(vaults[1].updatedAt.timeIntervalSince1970 == 1_794_918_645.5)
     }
 
     @Test func itemList() throws {
-        let reply = try Wire.decode(Wire.Reply<[ItemOverview]>.self, from: fixture("item-list"))
-        let items = try #require(reply.result)
+        let response = try CoreJSON.decode(CoreResponse<[ItemOverview]>.self, from: fixture("item-list"))
+        let items = try #require(response.result)
 
-        #expect(items.map(\.category) == ["SshKey", "SecureNote"])
-        #expect(items.map(\.state) == ["active", "archived"])
-        #expect(items[0].vaultId == "aaaaaaaaaaaaaaaaaaaaaaaaaa")
+        #expect(items.map(\.category) == [.sshKey, .secureNote])
+        #expect(items.map(\.state) == [.active, .archived])
+        #expect(items[0].vaultID == "aaaaaaaaaaaaaaaaaaaaaaaaaa")
         // No fraction.
         #expect(items[0].updatedAt.timeIntervalSince1970 == 1_794_918_645)
         #expect(items[1].updatedAt.timeIntervalSince1970 == 1_794_816_900.25)
     }
 
     @Test func sshKeyItem() throws {
-        let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-ssh-key"))
-        let item = try #require(reply.result)
+        let response = try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-ssh-key"))
+        let item = try #require(response.result)
 
-        #expect(item.category == "SshKey")
+        #expect(item.category == .sshKey)
         #expect(item.version == 7)
         #expect(item.sections == [Item.Section(id: "signd", title: "signd")])
         #expect(item.fields.map(\.id) == ["private_key", "public_key", "hosts"])
-        #expect(item.fields[0].fieldType == "SshKey")
+        #expect(item.fields[0].type == .sshKey)
         #expect(item.fields[0].value == "PLACEHOLDER-PRIVATE-KEY-NOT-A-KEY")
-        #expect(item.fields[0].sectionId == nil)
-        #expect(item.fields[2].sectionId == "signd")
+        #expect(item.fields[0].sectionID == nil)
+        #expect(item.fields[2].sectionID == "signd")
         #expect(item.fields[2].value == "git.example.com")
     }
 
     @Test func publicKeyComesFromTheDetailsOfAnSshKeyField() throws {
-        let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-ssh-key"))
-        let fields = try #require(reply.result).fields
+        let response = try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-ssh-key"))
+        let fields = try #require(response.result).fields
 
         #expect(fields[0].publicKey == "ssh-ed25519 AAAAFAKEFAKEFAKEFAKE fake-key-for-tests")
         // No details.
@@ -60,8 +60,8 @@ struct DecodingTests {
     }
 
     @Test func fieldsWithoutAnSshKeyHaveNoPublicKey() throws {
-        let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-field-details"))
-        let fields = try #require(reply.result).fields
+        let response = try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-field-details"))
+        let fields = try #require(response.result).fields
 
         // Details of another type, an SshKey field whose content is null, and no details.
         #expect(fields.map(\.id) == ["otp", "empty_key", "no_details"])
@@ -70,40 +70,42 @@ struct DecodingTests {
 
     @Test func fieldRoundTripsItsPublicKey() throws {
         let field = Item.Field(
-            id: "k", title: "k", fieldType: "SshKey", value: "v", sectionId: "s", publicKey: "ssh-ed25519 AAAA")
+            id: "k", title: "k", type: .sshKey, value: "v", sectionID: "s", publicKey: "ssh-ed25519 AAAA")
         let data = try JSONEncoder().encode(field)
 
         #expect(try JSONDecoder().decode(Item.Field.self, from: data) == field)
     }
 
-    @Test func aReplyThatDoesNotDecodeIsADecodingError() {
+    @Test func aResponseThatDoesNotDecodeIsAnInvalidResponse() {
         let error = #expect(throws: OnePasswordError.self) {
-            _ = try Wire.decode(Wire.Reply<Item>.self, from: Data(#"{"result": {"id": 1}}"#.utf8))
+            _ = try CoreJSON.decode(CoreResponse<Item>.self, from: Data(#"{"result": {"id": 1}}"#.utf8))
         }
 
-        #expect(error?.kind == .decoding)
-        #expect(error?.message == "the reply could not be decoded")
+        #expect(error?.code == .invalidResponse)
+        #expect(error?.message == "the response could not be decoded")
     }
 
     @Test func nullSlicesReadAsEmpty() throws {
-        let reply = try Wire.decode(Wire.Reply<Item>.self, from: fixture("item-no-sections"))
-        let item = try #require(reply.result)
+        let response = try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-no-sections"))
+        let item = try #require(response.result)
 
         #expect(item.fields.isEmpty)
         #expect(item.sections.isEmpty)
     }
 
-    @Test func errorKindsMap() throws {
-        let reply = try Wire.decode(Wire.Reply<[VaultOverview]>.self, from: fixture("error-rate-limited"))
+    @Test func errorCodesMap() throws {
+        let response = try CoreJSON.decode(CoreResponse<[VaultOverview]>.self, from: fixture("error-rate-limited"))
 
-        #expect(reply.error?.error.kind == .rateLimited)
-        #expect(Wire.Failure(kind: "authentication", message: "x").error.kind == .authentication)
-        #expect(Wire.Failure(kind: "badRequest", message: "x").error.kind == .other)
-        #expect(Wire.Failure(kind: "unknownHandle", message: "x").error.kind == .other)
+        #expect(response.error?.error.code == .rateLimited)
+        #expect(CoreError(code: "authenticationFailed", message: "x").error.code == .authenticationFailed)
+        #expect(CoreError(code: "requestFailed", message: "x").error.code == .requestFailed)
+        #expect(CoreError(code: "invalidRequest", message: "x").error.code == .requestFailed)
+        #expect(CoreError(code: "unknownClient", message: "x").error.code == .requestFailed)
+        #expect(CoreError(code: "somethingNew", message: "x").error.code == .requestFailed)
     }
 
     @Test func requestIsJSON() throws {
-        let json = Wire.encode(Wire.Request(method: "items.get", vaultId: "v", itemId: "i"))
+        let json = CoreJSON.encode(CoreRequest(method: .getItem, vaultID: "v", itemID: "i"))
         let object = try #require(try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: String])
 
         #expect(object == ["method": "items.get", "vaultId": "v", "itemId": "i"])
@@ -119,7 +121,7 @@ struct DecodingTests {
         ("2026-11-17T12:30:45.25-03:00", 1_794_929_445.25),
     ])
     func timestamps(text: String, seconds: Double) throws {
-        let date = try #require(Wire.parseTimestamp(text))
+        let date = try #require(RFC3339.date(from: text))
 
         #expect(abs(date.timeIntervalSince1970 - seconds) < 1e-6)
     }
@@ -129,6 +131,6 @@ struct DecodingTests {
         "2026-11-17T25:30:45Z", "2026-11-17T12:30:45+0530", "2026-11-17T12:30:45Zextra", "2026-11-17 12:30:45Z",
     ])
     func malformedTimestamps(text: String) {
-        #expect(Wire.parseTimestamp(text) == nil)
+        #expect(RFC3339.date(from: text) == nil)
     }
 }
