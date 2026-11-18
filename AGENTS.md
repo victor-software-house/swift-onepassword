@@ -1,8 +1,9 @@
 # AGENTS.md
 
 swift-onepassword binds 1Password's Go SDK to Swift for macOS.  
-A small Go file calls the SDK and exports C functions; `go build -buildmode=c-archive` turns it into a static library, shipped as an XCFramework that `Package.swift` names as a binary target.  
-The Swift module `OnePassword` wraps those C functions in typed `async` calls.
+A small Go file calls the SDK and exports C functions.  
+`go build -buildmode=c-archive` turns it into a static library, shipped as an XCFramework that `Package.swift` names as a binary target.  
+The Swift module `OnePassword` wraps the C functions in typed `async` calls.
 
 ## Work in this repository
 
