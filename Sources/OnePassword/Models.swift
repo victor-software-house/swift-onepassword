@@ -156,7 +156,7 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             id = try values.decode(String.self, forKey: .id)
             title = try values.decode(String.self, forKey: .title)
-            type = try values.decode(FieldType.self, forKey: .type)
+            type = FieldType(rawValue: try values.decode(String.self, forKey: .type))
             value = try values.decode(String.self, forKey: .value)
             sectionID = try values.decodeIfPresent(String.self, forKey: .sectionID)
             if type == .sshKey, values.contains(.details), try !values.decodeNil(forKey: .details) {
@@ -233,7 +233,7 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
         title = try values.decode(String.self, forKey: .title)
-        category = try values.decode(ItemCategory.self, forKey: .category)
+        category = ItemCategory(rawValue: try values.decode(String.self, forKey: .category))
         vaultID = try values.decode(String.self, forKey: .vaultID)
         fields = try values.decodeIfPresent([Field].self, forKey: .fields) ?? []
         sections = try values.decodeIfPresent([Section].self, forKey: .sections) ?? []
