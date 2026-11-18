@@ -46,6 +46,12 @@ case "$mode" in
     exe=$(built OnePasswordBenchmarks)
     "$tool" --command thresholds --thresholds-operation update --baseline run --format text "${args[@]}" \
       --benchmark-executable-paths "$exe"
+    # The tool writes every metric of the baseline. One with a file entry and no threshold in its benchmark
+    # is checked with a limit of zero, so the files keep only the metrics that have a threshold.
+    for file in Thresholds/*.json; do
+      jq -S 'del(.wallClock)' "$file" >"$file.tmp"
+      mv "$file.tmp" "$file"
+    done
     ;;
   *)
     echo "usage: bench:swift [check|update]" >&2
