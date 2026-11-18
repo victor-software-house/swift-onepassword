@@ -11,3 +11,5 @@ The Swift module `OnePassword` wraps the C functions in typed `async` calls.
 2. The Go SDK is pinned to an exact version; a new SDK version is its own release.
 3. Builds and tests run in CI on GitHub-hosted runners.
 4. A pull request that changes behaviour adds a `.changeset` fragment, always a patch unless the operator picks otherwise.
+5. Features are planned as OpenSpec changes under `openspec/`, with each task's evidence recorded under it, dated in UTC.
+6. Small work items go in the qctl queue, `tasks.yaml`, run with `mise run q`.

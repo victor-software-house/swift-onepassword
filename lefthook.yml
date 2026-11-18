@@ -54,6 +54,11 @@ pre-push:
     prose:
       env: *hookenv
       run: mise run lint:prose {push_files}
+    specs:
+      glob: ["openspec/*", "openspec/**/*"]
+      env: *hookenv
+      # Quoted: ":::" contains ": ", which YAML reads as a mapping.
+      run: "mise run specs ::: specs:budget"
     workflows:
       glob: [".github/*", ".github/**/*"]
       env: *hookenv

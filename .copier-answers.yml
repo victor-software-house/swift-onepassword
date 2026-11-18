@@ -21,6 +21,7 @@ pieces:
 - lint_toml
 - lint_typos
 - lint_prose
+- openspec
 - ci
 - drift_check
 pieces_extra:

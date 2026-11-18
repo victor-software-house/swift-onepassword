@@ -19,6 +19,23 @@ url = "https://github.com/open-policy-agent/conftest/releases/download/v0.71.1/c
 url_api = "https://api.github.com/repos/open-policy-agent/conftest/releases/assets/614476647"
 provenance = "github-attestations"
 
+[[tools."github:Fission-AI/OpenSpec"]]
+version = "1.16.0"
+backend = "github:Fission-AI/OpenSpec"
+specifiers = ["1.16.0"]
+
+[tools."github:Fission-AI/OpenSpec"."platforms.linux-x64"]
+checksum = "sha256:f27fb2ff5c6c4aafb207cb0b797189215adb3a1150d4b4600a2d6a0b6e192ae1"
+url = "https://github.com/Fission-AI/OpenSpec/releases/download/v1.16.0/openspec-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/Fission-AI/OpenSpec/releases/assets/693785691"
+provenance = "github-attestations"
+
+[tools."github:Fission-AI/OpenSpec"."platforms.macos-arm64"]
+checksum = "sha256:51e9298489a86718e32433ddffbb6d4a29ee9da992bf3bcfaa29a664ec7b4cc2"
+url = "https://github.com/Fission-AI/OpenSpec/releases/download/v1.16.0/openspec-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/Fission-AI/OpenSpec/releases/assets/693785649"
+provenance = "github-attestations"
+
 [[tools."github:crate-ci/committed"]]
 version = "1.1.11"
 backend = "github:crate-ci/committed"
@@ -52,6 +69,23 @@ checksum = "sha256:734ce75e8b67c009b3ae32667e7c6600f2a6f2d4a97abb65a079aec91cc56
 url = "https://github.com/victor-software-house/hakkiri/releases/download/v0.1.2/hakkiri_0.1.2_macos_arm64.tar.gz"
 url_api = "https://api.github.com/repos/victor-software-house/hakkiri/releases/assets/765084899"
 provenance = "github-attestations"
+
+[[tools."github:victor-software-house/qctl"]]
+version = "0.7.0"
+backend = "github:victor-software-house/qctl"
+specifiers = ["0.7.0"]
+
+[tools."github:victor-software-house/qctl"."platforms.linux-x64"]
+checksum = "sha256:f40ec6edae7bcb0133165d21f9e08f7f727e293f29acd822bb1d28f5b21edd78"
+checksum_source = "mise-versions"
+url = "https://github.com/victor-software-house/qctl/releases/download/v0.7.0/qctl_0.7.0_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/qctl/releases/assets/733204095"
+
+[tools."github:victor-software-house/qctl"."platforms.macos-arm64"]
+checksum = "sha256:47f8300f61f7db51b76678b4afbc403652bfe7c59061ee94d016e678253eae36"
+checksum_source = "mise-versions"
+url = "https://github.com/victor-software-house/qctl/releases/download/v0.7.0/qctl_0.7.0_macos_arm64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/qctl/releases/assets/733207589"
 
 [[tools."github:victor-software-house/verctl"]]
 version = "0.8.5"

@@ -27,6 +27,8 @@ includes = [
   "mise-tasks",
   # template:check, template:off, and template:on, at actions main, 2026-11-18.
   "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3",
+  # The q task (qctl v0.7.0), pinned by commit because a tag can move.
+  "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=ea9e838d7af20683930156dee9fdf16cebee5fcb",
   # The ver task (verctl v0.8.5), pinned by commit because a tag can move.
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=cef779a4ed2ce4705fd25c6ea17a5454d2522adc",
 ]
