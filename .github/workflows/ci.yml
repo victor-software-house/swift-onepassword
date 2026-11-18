@@ -1,0 +1,190 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+# Each job asks for the permissions it needs.
+permissions:
+  contents: read
+
+concurrency:
+  # A draft run gets a group of its own, so it never cancels the ready run.
+  group: >-
+    ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number ||
+    github.ref_name }}${{ github.event.pull_request.draft && '-draft' || '' }}
+  cancel-in-progress: true
+
+env:
+  # Tests that create git repositories get main as their first branch,
+  # whatever the runner image's git defaults to.
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+  # The CI profile; local work loads dev from .miserc.toml, which CI never does.
+  MISE_ENV: ci
+
+jobs:
+# Whether a pull request changes anything the build reads. Documentation is
+  # the root's Markdown files, docs/, and openspec/. A documentation file
+  # still counts as a build input when a Swift source names its path.
+  changes:
+    name: Changes
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-26.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      build: ${{ steps.scope.outputs.build }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          list-files: json
+          filters: |
+            all:
+              - '**'
+            docs:
+              - '*.md'
+              - 'docs/**'
+              - 'openspec/**'
+      - name: Decide whether to build
+        id: scope
+        shell: bash
+        env:
+          ALL: ${{ steps.filter.outputs.all_count }}
+          DOCS: ${{ steps.filter.outputs.docs_count }}
+          DOCS_FILES: ${{ steps.filter.outputs.docs_files }}
+        run: |
+          build=false
+          if [ "$ALL" != "$DOCS" ]; then
+            build=true
+          else
+            while IFS= read -r file; do
+              # A source spells the file's path from the root, as a test run
+              # there does, or a relative path that climbs to the root and ends
+              # in it.
+              if git grep -qF -e "/$file\"" -e "\"$file\"" -e "\"./$file\"" -- '*.swift'; then
+                echo "A source reads $file, so the build reads it."
+                build=true
+                break
+              fi
+            done < <(jq -r '.[]' <<<"$DOCS_FILES")
+          fi
+          echo "build=$build" >>"$GITHUB_OUTPUT"
+
+  build:
+    name: Build and test
+    needs: changes
+    # A documentation-only pull request skips the build. The Changes job is
+    # skipped on a merge group, a push and a dispatch, and its output is then
+    # empty, so the build runs there, and when Changes itself failed.
+    if: >-
+      ${{ !cancelled() && !github.event.pull_request.draft
+      && needs.changes.outputs.build != 'false' }}
+    runs-on: xcode-27
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # A check:versions task reads a pull request that changes a manifest
+      # version, to tell a version pull request apart from a hand edit.
+      pull-requests: read
+      # The mise action exchanges the job's token for the release mirror's.
+      id-token: write
+    steps:
+      - name: Check out repository
+        timeout-minutes: 3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install locked tools
+        timeout-minutes: 5
+        uses: victor-software-house/actions/mise@6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3 # main, 2026-11-18
+        with:
+          mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
+          mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
+          version: 2026.11.6
+      # The key names the toolchain: the Swift of the runner's Xcode on macOS,
+      # or the one mise installs. The first line of swift --version carries the
+      # compiler's build, so a cache never crosses toolchains.
+      - name: Read the Swift version
+        id: toolchain
+        shell: bash
+        run: |
+          version=$(mise x -- swift --version 2>&1 | head -n 1 | tr -c 'A-Za-z0-9.' '-')
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      # .build holds the dependency checkouts and the build products; SwiftPM's
+      # shared cache holds the repositories and manifests it clones, under
+      # ~/Library/Caches on macOS and ~/.cache on Linux. The key hashes the
+      # package manifests and resolved versions, leaving out .build, whose
+      # checkouts hold manifests of their own.
+      - name: Restore the SwiftPM and build caches
+        id: cache
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
+          key: "swift-${{ runner.os }}-${{ runner.arch }}-\
+            ${{ steps.toolchain.outputs.version }}-\
+            ${{ hashFiles('**/Package.swift', '**/Package.resolved', '!.build/**') }}"
+          restore-keys: "swift-${{ runner.os }}-${{ runner.arch }}-\
+            ${{ steps.toolchain.outputs.version }}-"
+      - name: Run check
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run check
+      # Only a run on the default branch saves: a pull request, a merge group
+      # and a run on another branch restore and never write, so no entry
+      # another run restores comes from unreviewed code. A merge group's
+      # entry sits on its own branch, which no pull request restores from. A
+      # repository that lands through a merge queue has no push run, so its
+      # daily refresh dispatches CI on the default branch.
+      #
+      # The key is the one the restore computed: hashing the manifests again
+      # here would also read the checkouts the build left in .build.
+      - name: Save the SwiftPM and build caches
+        if: >-
+          steps.cache.outputs.cache-hit != 'true'
+          && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+            ~/.cache/org.swift.swiftpm
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+  # The one check a ruleset requires: it reports on every pull request and
+  # merge queue run, and fails when the build failed or was cancelled. A build
+  # skipped by its own condition, a documentation-only pull request, counts as
+  # passing.
+  verify:
+    name: Verify
+    needs: [changes, build]
+    if: ${{ always() && !github.event.pull_request.draft }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 2
+    # Reads this run and its newer runs.
+    permissions:
+      actions: read
+    steps:
+      - uses: victor-software-house/actions/verify-jobs@6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3 # main, 2026-11-18
+        with:
+          needs: ${{ toJSON(needs) }}
+          jobs: build
