@@ -25,8 +25,8 @@ locked = true
 includes = [
   # Pinned git:: catalogs follow mise-tasks.
   "mise-tasks",
-  # template:check, template:off, and template:on, at actions main, 2026-11-17.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=e044bc0a41a1544d2c6a0b368c086392d6d184c9",
+  # template:check, template:off, and template:on, at actions main, 2026-11-18.
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3",
   # The ver task (verctl v0.8.5), pinned by commit because a tag can move.
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=cef779a4ed2ce4705fd25c6ea17a5454d2522adc",
 ]

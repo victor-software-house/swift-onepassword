@@ -6,4 +6,11 @@ cd "${MISE_PROJECT_ROOT:?}"
 mkdir -p build
 export OP_LIVE_REPORT=$PWD/build/live-report.md
 rm -f "$OP_LIVE_REPORT"
+# In CI the job summary shows the timings, whether the tests pass or fail.
+post_report() {
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ] && [ -f "$OP_LIVE_REPORT" ]; then
+    { echo '## Live calls'; echo; cat "$OP_LIVE_REPORT"; } >>"$GITHUB_STEP_SUMMARY"
+  fi
+}
+trap post_report EXIT
 swift test --filter LiveTests
