@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
+schema_version: 6
+prefix: S1P
+active: null
+queue:
+  - id: S1P-001
+    title: Make the reference-queue-hop benchmark stable
+    scope: benchmarks
+    outcome: The Swift benchmarks check fails only on a real regression.
+    blocked_by: []
+    acceptance:
+      - Ten runs of the Swift benchmarks check on an unchanged main all pass.
+    notes:
+      - '2026-11-18, the check failed on #13 with Reference-queue-hop Malloc p90 3237 against its 3005 threshold, and passed on reruns.'
+
+  - id: S1P-002
+    title: Measure the long-lived client memory test alone
+    scope: tests
+    outcome: aLongLivedClientKeepsItsMemory fails only on a real leak.
+    blocked_by: []
+    acceptance:
+      - Ten CI runs of main pass the test, each reporting growth under 1 MiB.
+    notes:
+      - '2026-11-18, in 8 CI runs a start near 201 to 211 MiB grew 0.2 MiB, and a start near 214 MiB grew 7 to 38 MiB; the merge group of #14 failed at 38.3 MiB.'
+      - The likely cause is that Swift Testing runs it in parallel with responsesAreFreed and its 100,000 calls, so the resident size counts their allocations.
+archive: []
+horizon: []

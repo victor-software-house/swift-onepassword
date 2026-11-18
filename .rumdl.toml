@@ -1,7 +1,9 @@
 # Markdown lint, checked by `mise run lint:md`.
 [global]
 # A release tool writes CHANGELOG.md; nobody edits it by hand.
-exclude = [".build/**", "CHANGELOG.md"]
+# OpenSpec schema templates hold placeholders instead of Markdown to render,
+# so their links and anchors point nowhere yet.
+exclude = [".build/**", "CHANGELOG.md", "openspec/schemas/**"]
 # Prose uses semantic line breaks, so line length is not linted.
 disable = ["MD013"]
 # Heading anchors (MD051), reference labels (MD052) and relative links to
@@ -21,3 +23,5 @@ extend-enable = ["MD051", "MD052", "MD057"]
 # A changeset is one release-note paragraph under YAML frontmatter, in Bun
 # projects (Changesets) and in Rust projects (verctl reads the same format).
 ".changeset/*.md" = ["MD041"]
+# OpenSpec delta specs start with their operation heading instead of a title.
+"openspec/changes/*/specs/**/spec.md" = ["MD041"]

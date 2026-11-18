@@ -7,6 +7,8 @@
 #MISE   "lint:prose",
 #MISE   "lint:workflows",
 #MISE   "lint:workflow-policy",
+#MISE   "specs",
+#MISE   "specs:budget",
 #MISE   "check:local",
 #MISE ]
 # Repository checks every project type runs.
