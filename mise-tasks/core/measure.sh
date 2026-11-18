@@ -2,9 +2,10 @@
 #MISE description="Time one op_client_open with a malformed token against the built archive; macOS only"
 #MISE depends=["core:build"]
 # The first client loads 1Password's core, so this is the start-up cost of an app that links the
-# archive. The call must fail with the authenticationFailed code. The time in milliseconds and the
-# process's peak resident size in MiB are printed and kept in build/core/startup-ms.txt and
-# peak-rss-mib.txt.
+# archive.
+# The call must fail with the authenticationFailed code.
+# A run prints the time in milliseconds and the process's peak resident size in MiB.
+# It writes the two numbers to build/core/startup-ms.txt and peak-rss-mib.txt.
 set -euo pipefail
 
 out=${MISE_PROJECT_ROOT:?}/build/core

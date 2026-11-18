@@ -1,9 +1,14 @@
 name: Core
 
-# The binary under the package is versioned by the content of core/. This workflow builds the
-# XCFramework from core/ and attaches it to a prerelease named core- and the first 12 hex digits
-# of the git tree hash of core/, unless that release already holds it. Package.swift names the
-# release; `mise run core:pin` points it at the release this workflow published.
+# The content of core/ sets the version of the binary under the package.
+# This workflow builds the XCFramework from core/ and attaches it to a prerelease.
+#
+# The tag of the prerelease is core- followed by the first 12 hex digits of the git tree hash of
+# core/.
+# The workflow skips the build when that release already has the XCFramework.
+#
+# Package.swift uses one release of the binary.
+# `mise run core:pin` sets it to the release this workflow published.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]

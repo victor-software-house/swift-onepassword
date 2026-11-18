@@ -9,17 +9,20 @@ on:
     - cron: "37 8 * * *"
   workflow_dispatch:
 
-# Each job asks for the permissions it needs.
+# Each job declares the permissions it needs.
 permissions:
   contents: read
 
 concurrency:
-  # Every merge queue entry shares one group, so a newer entry's run cancels the
-  # runs of the entries ahead of it: the queue merges on the newest entry's
-  # result, whose merge-group commit holds every entry ahead of it. That holds
-  # only while the queue groups HEADGREEN; under ALLGREEN a cancelled entry
-  # fails. Outside the queue, a draft run gets a group of its own, so it never
-  # cancels the ready run.
+  # Every merge queue entry shares one group.
+  # A newer entry's run therefore cancels the runs of the entries ahead of it.
+  # The queue merges on the result of the newest entry, whose merge-group
+  # commit contains every entry ahead of it.
+  #
+  # That works only while the queue groups HEADGREEN. Under ALLGREEN, a
+  # cancelled entry fails.
+  # Outside the queue, a draft run gets a group of its own, so it never cancels
+  # the ready run.
   group: >-
     ci-${{ github.workflow }}-${{ github.event_name == 'merge_group' && format('queue-{0}',
     github.event.merge_group.base_ref) || format('{0}-{1}{2}', github.event_name,
@@ -59,9 +62,9 @@ jobs:
   # still counts as a build input when a Swift source names its path.
   changes:
     name: Changes
-    # It runs on a pull request and a merge group: a merge group compares its
-    # head with its base, so a group of documentation-only pull requests skips
-    # the build in the queue too.
+    # It runs on a pull request and a merge group.
+    # A merge group compares its head with its base, so a group of
+    # documentation-only pull requests skips the build in the queue too.
     if: >-
       ${{ !github.event.pull_request.draft && github.event_name != 'push'
       && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
@@ -77,10 +80,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # A merge group diffs with git from its base commit, which a job
-          # with no credentials cannot fetch later in a private repository,
-          # so its checkout takes the whole history. The '0' is a string, so
-          # the || does not drop it.
+          # A merge group diffs with git from its base commit.
+          # A job with no credentials cannot fetch that commit later in a
+          # private repository, so its checkout takes the whole history.
+          # The '0' is a string, so the || does not drop it.
           fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}
       - name: Detect changed paths
         id: filter
@@ -122,9 +125,10 @@ jobs:
   build:
     name: Build and test
     needs: changes
-    # A documentation-only pull request or merge group skips the build. The
-    # Changes job is skipped on a push and a dispatch, and its output is then
-    # empty, so the build runs there, and when Changes itself failed.
+    # A documentation-only pull request or merge group skips the build.
+    # The Changes job is skipped on a push and a dispatch, and its output is
+    # then empty. The build therefore runs there, and when Changes itself
+    # failed.
     if: >-
       ${{ !cancelled() && !github.event.pull_request.draft
       && needs.changes.outputs.build != 'false' && github.event_name != 'schedule' }}
@@ -154,8 +158,8 @@ jobs:
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
           version: 2026.11.6
           # Only a run on the default branch writes the tools cache, as with
-          # the build caches below, so a pull request or a merge group adds no
-          # entry of its own.
+          # the build caches below.
+          # A pull request or a merge group adds no entry of its own.
           cache_save: >-
             ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       # The key names the toolchain: the Swift of the runner's Xcode on macOS,
@@ -173,13 +177,15 @@ jobs:
             echo "prefix=swift-$RUNNER_OS-$RUNNER_ARCH-$version-"
             echo "manifests=$MANIFESTS"
           } >>"$GITHUB_OUTPUT"
-      # .build holds the dependency checkouts and the build products; SwiftPM's
-      # shared cache holds the repositories and manifests it clones, under
-      # ~/Library/Caches on macOS and ~/.cache on Linux. The key hashes the
-      # package manifests and resolved versions, leaving out .build, whose
-      # checkouts hold manifests of their own, and ends in the run: a run on
-      # the default branch saves a fresh entry, and every run restores the
-      # newest, with the same manifests first and any manifests after that.
+      # .build contains the dependency checkouts and the build products.
+      # The shared cache of SwiftPM contains the repositories and manifests it
+      # clones, under ~/Library/Caches on macOS and ~/.cache on Linux.
+      #
+      # The key hashes the package manifests and resolved versions, leaving out
+      # .build, whose checkouts contain manifests of their own.
+      # The key ends in the run. A run on the default branch saves a fresh
+      # entry. Every run restores the newest entry, with the same manifests
+      # first and any manifests after that.
       - name: Restore the SwiftPM and build caches
         id: cache
         continue-on-error: true
@@ -207,12 +213,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           OP_TEST_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_TEST_SERVICE_ACCOUNT_TOKEN }}
         run: mise run live
-      # Only a run on the default branch saves: a pull request, a merge group
-      # and a run on another branch restore and never write, so no entry
-      # another run restores comes from unreviewed code. A merge group's
-      # entry sits on its own branch, which no pull request restores from. A
-      # repository that lands through a merge queue has no push run, so its
-      # daily refresh dispatches CI on the default branch.
+      # Only a run on the default branch saves.
+      # A pull request, a merge group and a run on another branch restore and
+      # never write. No entry that another run restores therefore comes from
+      # unreviewed code.
+      #
+      # A merge group's entry sits on its own branch, which no pull request
+      # restores from. A repository that lands through a merge queue has no
+      # push run. Its daily refresh therefore dispatches CI on the default
+      # branch.
       #
       # The key is the one the restore computed: hashing the manifests again
       # here would also read the checkouts the build left in .build.
@@ -229,12 +238,14 @@ jobs:
             ~/.cache/org.swift.swiftpm
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
-  # Each cache key ends in the run, so a run on the default branch that saved
-  # leaves one entry of each cache: this job deletes the older ones, newest
-  # kept. Only a run on the default branch saves, so cache-saved is true only
-  # there, and only such a run needs the permission to delete. Changes skips on
-  # a dispatch and on the daily refresh, the runs that save; !cancelled() keeps
-  # that skip from skipping this job too.
+  # Each cache key ends in the run.
+  # A run on the default branch that saved therefore leaves one entry of each
+  # cache. This job deletes the older ones, newest kept.
+  #
+  # Only a run on the default branch saves, so cache-saved is true only there.
+  # Only such a run needs the permission to delete.
+  # Changes skips on a dispatch and on the daily refresh, the runs that save.
+  # !cancelled() keeps that skip from skipping this job too.
   prune:
     name: Prune superseded caches
     needs: build
