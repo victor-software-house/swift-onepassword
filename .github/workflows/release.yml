@@ -1,9 +1,13 @@
 name: Release
 
-# Every push to main runs verctl's release workflow, which releases a merged Version PR's version
-# commit on GitHub (publisher none) and opens or updates the Version PR. When that push is the
-# version commit, a throwaway package then depends on the released version and links it. A manual
-# run checks the latest release again. A live job reads the test vault on every run.
+# Every push to main runs verctl's release workflow.
+# It releases the version commit of a merged Version PR on GitHub (publisher none).
+# It also opens or updates the Version PR.
+#
+# When the push is the version commit, a throwaway package then depends on the released version
+# and links it.
+# A manual run checks the latest release again.
+# A live job reads the test vault on every run.
 on:
   push:
     branches: [main]
