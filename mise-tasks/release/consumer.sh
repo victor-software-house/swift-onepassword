@@ -2,7 +2,7 @@
 #MISE description="Build a throwaway package that depends on a released version and links its binary; macOS only"
 # The version is the first argument. The package is what an app does: it names the repository's
 # URL and an exact version, and links the OnePassword module. The check passes when the client
-# starts and a malformed token gets the authentication kind from 1Password's core.
+# starts and a malformed token gets the authenticationFailed code from 1Password's core.
 set -eu
 version=${1:?usage: release:consumer <version>}
 work=$(mktemp -d)
@@ -36,8 +36,8 @@ do throws(OnePasswordError) {
     print("a malformed token started a client")
     exit(1)
 } catch {
-    guard error.kind == .authentication else {
-        print("a malformed token gave \(error.kind), not authentication")
+    guard error.code == .authenticationFailed else {
+        print("a malformed token gave \(error.code), not authenticationFailed")
         exit(1)
     }
     print("linked: \(error)")
