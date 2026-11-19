@@ -1,5 +1,9 @@
 # Changelog
 
+## swift-onepassword 0.0.5
+
+- `Item.Field.fingerprint` and `Item.Field.keyType` return the fingerprint and the key type (`Ed25519`, or `RSA, {length}-bit`) of an `SshKey` field, and nil for any other field ([`8cc90eb`](https://github.com/victor-software-house/swift-onepassword/commit/8cc90eb2cd6de1f104b8197dafa77cdd8d67f77d)).
+
 ## swift-onepassword 0.0.4
 
 - - `Client` writes items: `create(_:inVault:)`, `items(_:inVault:)`, `update(_:inVault:to:)`, `delete(_:inVault:)` and `archive(_:inVault:)`.
