@@ -52,4 +52,10 @@ run = "swift test"
 description = "Run the repository checks, then build the package and run its tests but the live ones, as CI does"
 depends = ["check:repo", "core:test"]
 # The live task runs LiveTests, once, and posts their timings.
-run = ["swift build", "swift test --skip LiveTests"]
+# The memory test reads the resident size of the whole process, so it runs alone.
+# Other suites run beside it in one process and raise that size by tens of megabytes.
+run = [
+  "swift build",
+  "swift test --skip LiveTests --skip aLongLivedClientKeepsItsMemory",
+  "swift test --filter aLongLivedClientKeepsItsMemory",
+]
