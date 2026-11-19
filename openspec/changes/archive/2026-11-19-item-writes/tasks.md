@@ -17,10 +17,12 @@
 
 ## 2. Release
 
-- [ ] 2.1 Add a changeset, and update the README's API section.
+- [x] 2.1 Add a changeset, and update the README's API section.
   Verify the Version PR lists the change.
   - 2026-11-19 UTC: `.changeset/item-writes.md` and the README section are in [pull request 18][pr-18].
     The Version PR exists only after the merge, so it is not yet read.
+  - 2026-11-19 UTC: the [0.0.4 release][rel-004] lists the item writes and the tags.
 
 [ci-build]: https://github.com/victor-software-house/swift-onepassword/actions/runs/44484809217/job/135425678134
 [pr-18]: https://github.com/victor-software-house/swift-onepassword/pull/18
+[rel-004]: https://github.com/victor-software-house/swift-onepassword/releases/tag/v0.0.4

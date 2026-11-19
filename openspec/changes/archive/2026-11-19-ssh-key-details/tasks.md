@@ -11,8 +11,10 @@
 
 ## 2. Release
 
-- [ ] 2.1 Add a changeset.
+- [x] 2.1 Add a changeset.
   Verify the Version PR lists the change.
+  - 2026-11-19 UTC: the [0.0.5 release][rel-005] lists the fingerprint and the key type.
 
 [ci-44522274648]: https://github.com/victor-software-house/swift-onepassword/actions/runs/44522274648
 [bench-44522274614]: https://github.com/victor-software-house/swift-onepassword/actions/runs/44522274614
+[rel-005]: https://github.com/victor-software-house/swift-onepassword/releases/tag/v0.0.5
