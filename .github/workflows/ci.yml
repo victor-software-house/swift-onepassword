@@ -97,6 +97,8 @@ jobs:
               - '*.md'
               - 'docs/**'
               - 'openspec/**'
+              - 'tasks.yaml'
+              - '.changeset/*.md'
       - name: Decide whether to build
         id: scope
         shell: bash
