@@ -37,6 +37,7 @@ jobs:
     with:
       publish: ${{ github.event_name == 'push' }}
       version-pr: ${{ github.event_name == 'push' }}
+      mise-version: 2026.11.10
       docs: false
       runner: '["ubuntu-26.04"]'
     secrets:
@@ -62,7 +63,7 @@ jobs:
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           # mise.toml's min_version; the action otherwise takes the newest release older than 24 h.
-          version: 2026.11.6
+          version: 2026.11.10
       - id: plan
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -83,7 +84,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          version: 2026.11.6
+          version: 2026.11.10
       - run: xcodebuild -version
       - env:
           VERSION: ${{ needs.plan.outputs.version }}
@@ -102,7 +103,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          version: 2026.11.6
+          version: 2026.11.10
       - name: Read the test vault
         env:
           OP_TEST_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_TEST_SERVICE_ACCOUNT_TOKEN }}
