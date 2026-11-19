@@ -17,7 +17,7 @@
 
 ## 2. Release
 
-- [x] 2.1 Add a changeset, and update the README's API section.
+- [ ] 2.1 Add a changeset, and update the README's API section.
   Verify the Version PR lists the change.
   - 2026-11-19 UTC: `.changeset/item-writes.md` and the README section are in [pull request 18][pr-18].
     The Version PR exists only after the merge, so it is not yet read.
