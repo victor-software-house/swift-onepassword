@@ -59,8 +59,7 @@ The write tests use `OP_TEST_WRITE_TOKEN`, a service account that can read and w
 A run tags its items `swift-onepassword-test` and deletes them at its end, pass or fail.
 It first deletes tagged items that a crashed run left behind.
 
-The SDK cannot delete an archived item.
-The one item a run archives stays in the vault, and the test checks only that it leaves `items(inVault:)`.
+The SDK refuses to delete an archived item and has no unarchive, so the live suite does not archive.
 
 The SSH Key item's private key is an Ed25519 key that the test makes, in the Public-Key Cryptography Standards (PKCS) 8 format.
 

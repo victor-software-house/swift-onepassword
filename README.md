@@ -131,7 +131,7 @@ The tests cover:
 It needs `OP_TEST_SERVICE_ACCOUNT_TOKEN` to be a read-only service account token for that vault, and skips otherwise.
 
 The write tests use `OP_TEST_WRITE_TOKEN`, a service account that reads and writes only the vault "swift-onepassword writes", and skip without it.
-They create SSH Key and Secure Note items tagged `swift-onepassword-test`, read, update, archive and delete them, and delete what a crashed run left.
+They create SSH Key and Secure Note items tagged `swift-onepassword-test`, read, update and delete them, and delete what a crashed run left.
 
 - CI runs both on pull requests from this repository and on every release run.
 - The job summary shows the timings of a warm `vaults.list` and `items.get`.
