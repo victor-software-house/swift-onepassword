@@ -127,6 +127,17 @@ func update(
 	if err != nil {
 		return onepassword.Item{}, err
 	}
+	// The Swift side keeps no field details, such as an address's parts.
+	// A field sent back without details keeps those of the stored field with its ID.
+	stored := map[string]*onepassword.ItemFieldDetails{}
+	for _, f := range item.Fields {
+		stored[f.ID] = f.Details
+	}
+	for i, f := range c.Fields {
+		if details, ok := stored[f.ID]; ok && f.Details == nil {
+			c.Fields[i].Details = details
+		}
+	}
 	item.Title = c.Title
 	item.Fields = c.Fields
 	item.Sections = c.Sections

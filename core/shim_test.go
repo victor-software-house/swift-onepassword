@@ -631,3 +631,38 @@ func TestLongLivedClientMemory(t *testing.T) {
 		t.Fatalf("the resident size grew by %.1f MiB over 1000 calls", growth)
 	}
 }
+
+func TestUpdateKeepsTheDetailsOfAFieldSentWithout(t *testing.T) {
+	var address onepassword.ItemFieldDetails
+	if err := json.Unmarshal([]byte(`{"type":"Address","content":{"street":"1 Main St","city":"Town","country":"us","zip":"1","state":"S"}}`), &address); err != nil {
+		t.Fatal(err)
+	}
+	read := onepassword.Item{ID: "i", VaultID: "v", Title: "t", Category: onepassword.ItemCategoryIdentity,
+		Fields: []onepassword.ItemField{{ID: "addr", Title: "address", FieldType: onepassword.ItemFieldTypeAddress, Details: &address}}}
+	var written onepassword.Item
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		get: func(string, string) (onepassword.Item, error) { return read, nil },
+		put: func(item onepassword.Item) (onepassword.Item, error) {
+			written = item
+			return item, nil
+		}}})
+
+	req := `{"method":"items.update","vaultId":"v","itemId":"i","content":{"title":"t",
+		"fields":[{"id":"addr","title":"address","fieldType":"Address","value":""},{"id":"new","title":"n","fieldType":"Text","value":"x"}]}}`
+	if res := parse(t, call(handle, req)); res.Error != nil {
+		t.Fatalf("unexpected error %+v", res.Error)
+	}
+	if len(written.Fields) != 2 || written.Fields[0].Details == nil {
+		t.Fatalf("the stored address details are lost: %+v", written.Fields)
+	}
+	kept, err := json.Marshal(written.Fields[0].Details)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(kept), "1 Main St") {
+		t.Fatalf("the stored address details changed: %s", kept)
+	}
+	if written.Fields[1].Details != nil {
+		t.Fatalf("a new field gained details: %+v", written.Fields[1])
+	}
+}
