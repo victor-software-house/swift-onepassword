@@ -1,6 +1,7 @@
 # ssh-key-details Specification
 
 ## Purpose
+
 An `SshKey` field returns the public key, the fingerprint and the key type that 1Password stores for it.
 
 ## Requirements

@@ -1,6 +1,7 @@
 # item-writes Specification
 
 ## Purpose
+
 `Client` creates, reads, updates, archives and deletes items in a vault.
 A batch call reports each item on its own, so one failed item does not hide the others.
 
