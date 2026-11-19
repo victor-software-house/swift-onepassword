@@ -13,6 +13,17 @@ queue:
     notes:
       - '2026-11-18, in 8 CI runs a start near 201 to 211 MiB grew 0.2 MiB, and a start near 214 MiB grew 7 to 38 MiB; the merge group of #14 failed at 38.3 MiB.'
       - The likely cause is that Swift Testing runs it in parallel with responsesAreFreed and its 100,000 calls, so the resident size counts their allocations.
+
+  - id: S1P-003
+    title: Measure the Go memory test without the race detector
+    scope: tests
+    outcome: TestLongLivedClientMemory fails only on a real leak.
+    blocked_by: []
+    acceptance:
+      - core:test runs TestLongLivedClientMemory in its own go test run, without -race.
+      - Ten runs on main pass.
+    notes:
+      - '2026-11-19 UTC: main run 44571431419 failed with a Go heap of 19.7 MiB at start and end, and a resident size of 640.9 MiB that grew 17.9 MiB under -race.'
 archive:
   - id: S1P-001
     title: Make the reference-queue-hop benchmark stable
