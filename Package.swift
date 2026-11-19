@@ -21,8 +21,8 @@ let package = Package(
         // `mise run core:pin` rewrites the url and the checksum after the Core workflow publishes the release.
         .binaryTarget(
             name: "COnePassword",
-            url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-1284497315fa/COnePassword.xcframework.zip",
-            checksum: "f10db206223f5f91010f85f68da74d78de42cab7c5351a7737b4ac752e050b81"
+            url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-85a6a8be3369/COnePassword.xcframework.zip",
+            checksum: "f7c1390294e11c322cdd102f462a1f4dc610426fd50957e63e55b2564326cd22"
         ),
         .target(
             name: "OnePassword",
