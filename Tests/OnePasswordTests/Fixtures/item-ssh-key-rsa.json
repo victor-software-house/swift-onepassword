@@ -1,0 +1,37 @@
+{
+  "result": {
+    "id": "cccccccccccccccccccccccccc-rsa",
+    "title": "Deploy key",
+    "category": "SshKey",
+    "vaultId": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fields": [
+      {
+        "id": "rsa_key",
+        "title": "rsa key",
+        "fieldType": "SshKey",
+        "value": "PLACEHOLDER-PRIVATE-KEY-NOT-A-KEY",
+        "details": {
+          "type": "SshKey",
+          "content": {
+            "publicKey": "ssh-rsa AAAAFAKEFAKEFAKEFAKE fake-rsa-key-for-tests",
+            "fingerprint": "SHA256:FAKERSAFINGERPRINT",
+            "keyType": "RSA, 4096-bit"
+          }
+        }
+      }
+    ],
+    "sections": [
+      {
+        "id": "signd",
+        "title": "signd"
+      }
+    ],
+    "notes": "",
+    "tags": null,
+    "websites": null,
+    "version": 7,
+    "files": null,
+    "createdAt": "2026-11-02T10:00:00Z",
+    "updatedAt": "2026-11-17T12:30:45.123456789Z"
+  }
+}
