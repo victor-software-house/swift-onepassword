@@ -73,8 +73,15 @@ struct WriteLiveTests {
         #expect(!listed.contains { $0.id == noteID })
         #expect(listed.contains { $0.id == sshID })
 
-        let failed = try await client.delete([sshID, noteID], inVault: vaultID)
+        let failed = try await client.delete([sshID], inVault: vaultID)
         #expect(failed.isEmpty)
+        // Reported apart, to tell a refusal to delete an archived item from any other failure.
+        do {
+            let archivedFailed = try await client.delete([noteID], inVault: vaultID)
+            #expect(archivedFailed.isEmpty)
+        } catch {
+            Issue.record("deleting the archived note failed: \(error)")
+        }
         let remaining = try await client.items(inVault: vaultID)
         #expect(!remaining.contains { $0.tags.contains(testTag) })
     }
