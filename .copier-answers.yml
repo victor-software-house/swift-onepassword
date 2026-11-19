@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; edit with `copier update --data`.
-_commit: v0.0.126
+_commit: v0.0.127
 _src_path: https://github.com/victor-software-house/templates.git
 build_os: macos
 ci_extra_tasks:
@@ -14,7 +14,7 @@ linux_image: ubuntu-26.04
 macos_image: macos-27
 merge_queue: true
 merge_queue_cancel_lower: true
-mise_version: 2026.11.6
+mise_version: 2026.11.10
 pieces:
 - hooks
 - lint_markdown

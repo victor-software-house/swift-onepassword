@@ -156,7 +156,7 @@ jobs:
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
-          version: 2026.11.6
+          version: 2026.11.10
           # Only a run on the default branch writes the tools cache, as with
           # the build caches below.
           # A pull request or a merge group adds no entry of its own.
