@@ -64,9 +64,10 @@ struct ClientTests {
     }
 
     /// An agent opens one client and keeps it for days, calling it every few minutes.
-    /// A thousand calls on one client must leave the resident size where it was.
-    /// So must a thousand failing opens through the core.
-    /// A slow leak shows as growth.
+    /// In CI the core's memory grew once early in the loop, by up to 15 MiB, and then stayed.
+    ///
+    /// A leak grows with every call instead, so the test reads the growth over the last 500 calls.
+    /// A leak of 2 KiB a call, client or failing open, grows that by 1 MiB.
     @Test func aLongLivedClientKeepsItsMemory() async {
         _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
         let client = Client(handle: 1 << 44)
@@ -87,7 +88,8 @@ struct ClientTests {
 
         print(String(format: "long-lived client, resident size: start %.1f MiB, end %.1f MiB", start, end))
         print("long-lived client, resident size per hundred calls: " + steps.map { String(format: "%.1f", $0) }.joined(separator: " "))
-        #expect(end - start < 32, "the resident size grew from \(start) to \(end) MiB")
+        let late = end - steps[4]
+        #expect(late < 1, "the resident size grew by \(late) MiB over the last 500 calls")
     }
 
     /// Every response the core returns is a C string that the client frees with op_free.
