@@ -65,6 +65,7 @@ jobs:
     # It runs on a pull request and a merge group.
     # A merge group compares its head with its base, so a group of
     # documentation-only pull requests skips the build in the queue too.
+    # It runs the repository checks instead.
     if: >-
       ${{ !github.event.pull_request.draft && github.event_name != 'push'
       && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
@@ -127,7 +128,8 @@ jobs:
   build:
     name: Build and test
     needs: changes
-    # A documentation-only pull request or merge group skips the build.
+    # A documentation-only pull request or merge group skips the build, and
+    # the checks job below runs the repository checks instead.
     # The Changes job is skipped on a push and a dispatch, and its output is
     # then empty. The build therefore runs there, and when Changes itself
     # failed.
@@ -241,6 +243,44 @@ jobs:
             ~/.cache/org.swift.swiftpm
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
+  # A documentation-only change skips the build, and the repository checks that
+  # its task runs with it. This job gives such a change every repository check
+  # on the light runner, without the native build. It runs exactly when the
+  # build is skipped.
+  checks:
+    name: Repository checks
+    needs: changes
+    if: >-
+      ${{ !cancelled() && !github.event.pull_request.draft
+      && needs.changes.outputs.build == 'false' && github.event_name != 'schedule' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # The mise action exchanges the job's token for the release mirror's.
+      id-token: write
+    steps:
+      - name: Check out repository
+        timeout-minutes: 3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # mise installs each task's tools as the task runs.
+      - name: Install mise
+        timeout-minutes: 5
+        uses: victor-software-house/actions/mise@6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3 # main, 2026-11-18
+        with:
+          mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
+          mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
+          version: 2026.11.10
+          install: "false"
+          # Only a run on the default branch writes the tools cache, as in the
+          # build.
+          cache_save: >-
+            ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+      - name: Run check:repo
+        run: mise run check:repo
+
   # Each cache key ends in the run.
   # A run on the default branch that saved therefore leaves one entry of each
   # cache. This job deletes the older ones, newest kept.
@@ -274,12 +314,12 @@ jobs:
           done
 
   # The one check a ruleset requires: it reports on every pull request and
-  # merge queue run, and fails when the build failed or was cancelled. A build
-  # skipped by its own condition, a documentation-only pull request, counts as
-  # passing.
+  # merge queue run. It fails when the build or the repository checks failed or
+  # were cancelled. A job skipped by its own condition counts as passing, as the
+  # build does on a documentation-only pull request.
   verify:
     name: Verify
-    needs: [changes, build]
+    needs: [changes, build, checks]
     if: ${{ always() && !github.event.pull_request.draft && github.event_name != 'schedule' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 2
@@ -290,4 +330,4 @@ jobs:
       - uses: victor-software-house/actions/verify-jobs@6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3 # main, 2026-11-18
         with:
           needs: ${{ toJSON(needs) }}
-          jobs: build
+          jobs: "build checks"
