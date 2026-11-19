@@ -41,7 +41,7 @@ struct DecodingTests {
         #expect(item.category == .sshKey)
         #expect(item.version == 7)
         #expect(item.sections == [Item.Section(id: "signd", title: "signd")])
-        #expect(item.fields.map(\.id) == ["private_key", "public_key", "hosts"])
+        #expect(item.fields.map(\.id) == ["private_key", "public_key", "hosts", "rsa_key"])
         #expect(item.fields[0].type == .sshKey)
         #expect(item.fields[0].value == "PLACEHOLDER-PRIVATE-KEY-NOT-A-KEY")
         #expect(item.fields[0].sectionID == nil)
@@ -49,31 +49,56 @@ struct DecodingTests {
         #expect(item.fields[2].value == "git.example.com")
     }
 
-    @Test func publicKeyComesFromTheDetailsOfAnSshKeyField() throws {
+    @Test func keyAttributesComeFromTheDetailsOfAnSshKeyField() throws {
         let response = try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-ssh-key"))
         let fields = try #require(response.result).fields
 
         #expect(fields[0].publicKey == "ssh-ed25519 AAAAFAKEFAKEFAKEFAKE fake-key-for-tests")
+        #expect(fields[0].fingerprint == "SHA256:FAKEFINGERPRINT")
+        #expect(fields[0].keyType == "Ed25519")
         // No details.
         #expect(fields[1].publicKey == nil)
+        #expect(fields[1].fingerprint == nil)
+        #expect(fields[1].keyType == nil)
         #expect(fields[2].publicKey == nil)
+        #expect(fields[2].fingerprint == nil)
+        #expect(fields[2].keyType == nil)
+        // A key type that names a length.
+        #expect(fields[3].fingerprint == "SHA256:FAKERSAFINGERPRINT")
+        #expect(fields[3].keyType == "RSA, 4096-bit")
     }
 
-    @Test func fieldsWithoutAnSshKeyHaveNoPublicKey() throws {
+    @Test func fieldsWithoutAnSshKeyHaveNoKeyAttributes() throws {
         let response = try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-field-details"))
         let fields = try #require(response.result).fields
 
         // Details of another type, an SshKey field whose content is null, and no details.
         #expect(fields.map(\.id) == ["otp", "empty_key", "no_details"])
         #expect(fields.map(\.publicKey) == [nil, nil, nil])
+        #expect(fields.map(\.fingerprint) == [nil, nil, nil])
+        #expect(fields.map(\.keyType) == [nil, nil, nil])
     }
 
-    @Test func fieldRoundTripsItsPublicKey() throws {
+    @Test func fieldRoundTripsItsKeyAttributes() throws {
         let field = Item.Field(
-            id: "k", title: "k", type: .sshKey, value: "v", sectionID: "s", publicKey: "ssh-ed25519 AAAA")
+            id: "k", title: "k", type: .sshKey, value: "v", sectionID: "s", publicKey: "ssh-ed25519 AAAA",
+            fingerprint: "SHA256:AAAA", keyType: "Ed25519")
         let data = try JSONEncoder().encode(field)
 
         #expect(try JSONDecoder().decode(Item.Field.self, from: data) == field)
+    }
+
+    @Test func fieldRoundTripsEachKeyAttributeAlone() throws {
+        let fields = [
+            Item.Field(id: "p", title: "p", type: .sshKey, value: "v", publicKey: "ssh-ed25519 AAAA"),
+            Item.Field(id: "f", title: "f", type: .sshKey, value: "v", fingerprint: "SHA256:AAAA"),
+            Item.Field(id: "t", title: "t", type: .sshKey, value: "v", keyType: "RSA, 2048-bit"),
+        ]
+
+        for field in fields {
+            let data = try JSONEncoder().encode(field)
+            #expect(try JSONDecoder().decode(Item.Field.self, from: data) == field)
+        }
     }
 
     @Test func aResponseThatDoesNotDecodeIsAnInvalidResponse() {

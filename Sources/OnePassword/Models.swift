@@ -158,10 +158,16 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
         /// The public key of an `SshKey` field, from the SDK's `details.content.publicKey`.
         /// It is nil when the field has no details, or the details have no public key.
         public let publicKey: String?
+        /// The fingerprint of an `SshKey` field's key, from the SDK's `details.content.fingerprint`.
+        /// It is nil when the field has no details, or the details have no fingerprint.
+        public let fingerprint: String?
+        /// The kind of an `SshKey` field's key, from the SDK's `details.content.keyType`: `Ed25519`, or `RSA, {length}-bit`.
+        /// It is nil when the field has no details, or the details have no key type.
+        public let keyType: String?
 
         public init(
             id: String, title: String, type: FieldType, value: String, sectionID: String? = nil,
-            publicKey: String? = nil
+            publicKey: String? = nil, fingerprint: String? = nil, keyType: String? = nil
         ) {
             self.id = id
             self.title = title
@@ -169,6 +175,8 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
             self.value = value
             self.sectionID = sectionID
             self.publicKey = publicKey
+            self.fingerprint = fingerprint
+            self.keyType = keyType
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -182,7 +190,7 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
         }
 
         private enum ContentKeys: String, CodingKey {
-            case publicKey
+            case publicKey, fingerprint, keyType
         }
 
         // Go writes the details of a field as {"type": ..., "content": {...}}.
@@ -195,17 +203,21 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
             type = FieldType(rawValue: try values.decode(String.self, forKey: .type))
             value = try values.decode(String.self, forKey: .value)
             sectionID = try values.decodeIfPresent(String.self, forKey: .sectionID)
+            var publicKey: String?
+            var fingerprint: String?
+            var keyType: String?
             if type == .sshKey, values.contains(.details), try !values.decodeNil(forKey: .details) {
                 let details = try values.nestedContainer(keyedBy: DetailsKeys.self, forKey: .details)
                 if details.contains(.content), try !details.decodeNil(forKey: .content) {
                     let content = try details.nestedContainer(keyedBy: ContentKeys.self, forKey: .content)
                     publicKey = try content.decodeIfPresent(String.self, forKey: .publicKey)
-                } else {
-                    publicKey = nil
+                    fingerprint = try content.decodeIfPresent(String.self, forKey: .fingerprint)
+                    keyType = try content.decodeIfPresent(String.self, forKey: .keyType)
                 }
-            } else {
-                publicKey = nil
             }
+            self.publicKey = publicKey
+            self.fingerprint = fingerprint
+            self.keyType = keyType
         }
 
         public func encode(to encoder: any Encoder) throws {
@@ -215,11 +227,13 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
             try values.encode(type, forKey: .type)
             try values.encode(value, forKey: .value)
             try values.encodeIfPresent(sectionID, forKey: .sectionID)
-            if let publicKey {
+            if publicKey != nil || fingerprint != nil || keyType != nil {
                 var details = values.nestedContainer(keyedBy: DetailsKeys.self, forKey: .details)
                 try details.encode(type, forKey: .type)
                 var content = details.nestedContainer(keyedBy: ContentKeys.self, forKey: .content)
-                try content.encode(publicKey, forKey: .publicKey)
+                try content.encodeIfPresent(publicKey, forKey: .publicKey)
+                try content.encodeIfPresent(fingerprint, forKey: .fingerprint)
+                try content.encodeIfPresent(keyType, forKey: .keyType)
             }
         }
     }
