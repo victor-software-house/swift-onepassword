@@ -1,18 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
 schema_version: 6
 prefix: S1P
-active: null
+active: S1P-002
 queue:
-  - id: S1P-001
-    title: Make the reference-queue-hop benchmark stable
-    scope: benchmarks
-    outcome: The Swift benchmarks check fails only on a real regression.
-    blocked_by: []
-    acceptance:
-      - Ten runs of the Swift benchmarks check on an unchanged main all pass.
-    notes:
-      - '2026-11-18, the check failed on #13 with Reference-queue-hop Malloc p90 3237 against its 3005 threshold, and passed on reruns.'
-
   - id: S1P-002
     title: Measure the long-lived client memory test alone
     scope: tests
@@ -23,5 +13,16 @@ queue:
     notes:
       - '2026-11-18, in 8 CI runs a start near 201 to 211 MiB grew 0.2 MiB, and a start near 214 MiB grew 7 to 38 MiB; the merge group of #14 failed at 38.3 MiB.'
       - The likely cause is that Swift Testing runs it in parallel with responsesAreFreed and its 100,000 calls, so the resident size counts their allocations.
-archive: []
+archive:
+  - id: S1P-001
+    title: Make the reference-queue-hop benchmark stable
+    scope: benchmarks
+    outcome: The Swift benchmarks check fails only on a real regression.
+    notes:
+      - '2026-11-18, the check failed on #13 with Reference-queue-hop Malloc p90 3237 against its 3005 threshold, and passed on reruns.'
+    completed: 2026-11-19T15:12:52
+    evidence:
+      - '2026-11-19 UTC: ten Benchmarks runs on an unchanged main all passed the Swift check, runs 44546721108, 44547138647, 44547751477, 44548261204, 44548770640'
+      - and 44549370317, 44549883160, 44550616999, 44551150886, 44551771844; the Reference-queue-hop threshold of 3313 held, so no limit changed.
+    disposition: completed
 horizon: []
