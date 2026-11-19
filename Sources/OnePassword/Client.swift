@@ -58,6 +58,49 @@ public final class Client: Sendable {
         return item
     }
 
+    /// Creates items in one vault, in one call.
+    /// The results are in the order of `items`, so one rejected item does not hide the others.
+    public func create(
+        _ items: [ItemContent], inVault vaultID: String
+    ) async throws(OnePasswordError) -> [ItemResult] {
+        try await call(CoreRequest(method: .createItems, vaultID: vaultID, items: items), as: [ItemResult].self) ?? []
+    }
+
+    /// Reads items of one vault by their IDs, in one call.
+    /// The results are in the order of `itemIDs`, so one missing item does not hide the others.
+    public func items(
+        _ itemIDs: [String], inVault vaultID: String
+    ) async throws(OnePasswordError) -> [ItemResult] {
+        try await call(CoreRequest(method: .getItems, vaultID: vaultID, itemIDs: itemIDs), as: [ItemResult].self) ?? []
+    }
+
+    /// Sets the title, fields, sections, notes and tags of an item, and returns the updated item.
+    /// The item keeps its category, websites, files and document.
+    /// The call fails when another writer changes the item between its read and its write.
+    public func update(
+        _ itemID: String, inVault vaultID: String, to content: ItemContent
+    ) async throws(OnePasswordError) -> Item {
+        let item = try await call(
+            CoreRequest(method: .updateItem, vaultID: vaultID, itemID: itemID, content: content), as: Item.self
+        )
+        guard let item else { throw OnePasswordError(code: .requestFailed, message: "the item is empty") }
+        return item
+    }
+
+    /// Deletes items of one vault, in one call, and returns the failure of each item it could not delete.
+    /// The result is empty when every item was deleted.
+    public func delete(
+        _ itemIDs: [String], inVault vaultID: String
+    ) async throws(OnePasswordError) -> [String: ItemFailure] {
+        let request = CoreRequest(method: .deleteItems, vaultID: vaultID, itemIDs: itemIDs)
+        return try await call(request, as: [String: ItemFailure].self) ?? [:]
+    }
+
+    /// Moves an item to the archive.
+    public func archive(_ itemID: String, inVault vaultID: String) async throws(OnePasswordError) {
+        _ = try await call(CoreRequest(method: .archiveItem, vaultID: vaultID, itemID: itemID), as: Never.self)
+    }
+
     private func call<Value: Decodable & Sendable>(
         _ request: CoreRequest, as type: Value.Type
     ) async throws(OnePasswordError) -> Value? {

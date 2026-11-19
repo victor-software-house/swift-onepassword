@@ -1,0 +1,5 @@
+{
+  "method": "items.archive",
+  "vaultId": "v",
+  "itemId": "i"
+}

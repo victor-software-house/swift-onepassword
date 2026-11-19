@@ -1,0 +1,18 @@
+{
+  "method": "items.createAll",
+  "vaultId": "v",
+  "items": [
+    {
+      "category": "SecureNote",
+      "title": "t",
+      "fields": [
+        { "id": "f", "title": "F", "fieldType": "Concealed", "value": "x", "sectionId": "s" }
+      ],
+      "sections": [
+        { "id": "s", "title": "S" }
+      ],
+      "notes": "n",
+      "tags": ["a"]
+    }
+  ]
+}

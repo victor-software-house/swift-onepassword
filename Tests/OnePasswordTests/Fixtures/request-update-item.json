@@ -1,0 +1,17 @@
+{
+  "method": "items.update",
+  "vaultId": "v",
+  "itemId": "i",
+  "content": {
+    "category": "SecureNote",
+    "title": "t",
+    "fields": [
+      { "id": "f", "title": "F", "fieldType": "Concealed", "value": "x", "sectionId": "s" }
+    ],
+    "sections": [
+      { "id": "s", "title": "S" }
+    ],
+    "notes": "n",
+    "tags": ["a"]
+  }
+}

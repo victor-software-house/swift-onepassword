@@ -93,6 +93,100 @@ struct DecodingTests {
         #expect(item.sections.isEmpty)
     }
 
+    @Test func tagsReadAsEmptyWhenNullOrMissing() throws {
+        let listed = try #require(
+            try CoreJSON.decode(CoreResponse<[ItemOverview]>.self, from: fixture("item-list")).result)
+        let bare = try #require(
+            try CoreJSON.decode(CoreResponse<[ItemOverview]>.self, from: fixture("item-overview-no-tags")).result)
+        let nullTags = try #require(
+            try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-ssh-key")).result)
+        let missingTags = try #require(
+            try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-no-sections")).result)
+
+        // Null, a list, and a missing key, for an overview and an item.
+        #expect(listed.map(\.tags) == [[], ["fake"]])
+        #expect(bare.map(\.tags) == [[]])
+        #expect(nullTags.tags.isEmpty)
+        #expect(missingTags.tags.isEmpty)
+    }
+
+    @Test func batchResultKeepsOrderAndFailureTypes() throws {
+        let response = try CoreJSON.decode(CoreResponse<[ItemResult]>.self, from: fixture("batch-result"))
+        let results = try #require(response.result)
+
+        #expect(results.count == 3)
+        guard case .item(let item) = results[0] else {
+            Issue.record("the first result is not an item")
+            return
+        }
+        #expect(item.title == "Deploy key")
+        #expect(item.tags == ["swift-onepassword-test"])
+        #expect(results[1] == .failure(.validationError))
+        // A type that the SDK adds later still decodes.
+        #expect(results[2] == .failure(ItemFailure(rawValue: "somethingNew")))
+    }
+
+    @Test func aBatchEntryWithNeitherAnItemNorAFailureIsAnInvalidResponse() {
+        let error = #expect(throws: OnePasswordError.self) {
+            _ = try CoreJSON.decode(CoreResponse<[ItemResult]>.self, from: Data(#"{"result": [{}]}"#.utf8))
+        }
+
+        #expect(error?.code == .invalidResponse)
+    }
+
+    @Test func deleteFailuresMapEachIDToItsType() throws {
+        let failed = try #require(
+            try CoreJSON.decode(CoreResponse<[String: ItemFailure]>.self, from: fixture("delete-failures")).result)
+        let none = try #require(
+            try CoreJSON.decode(CoreResponse<[String: ItemFailure]>.self, from: fixture("delete-all-deleted")).result)
+
+        #expect(failed == ["dddddddddddddddddddddddddd": .permissionError])
+        #expect(none.isEmpty)
+    }
+
+    private func requestObject(_ request: CoreRequest) throws -> NSDictionary {
+        try #require(try JSONSerialization.jsonObject(with: Data(CoreJSON.encode(request).utf8)) as? NSDictionary)
+    }
+
+    private func fixtureObject(_ name: String) throws -> NSDictionary {
+        try #require(try JSONSerialization.jsonObject(with: fixture(name)) as? NSDictionary)
+    }
+
+    private let content = ItemContent(
+        category: .secureNote, title: "t",
+        fields: [Item.Field(id: "f", title: "F", type: .concealed, value: "x", sectionID: "s")],
+        sections: [Item.Section(id: "s", title: "S")], notes: "n", tags: ["a"])
+
+    @Test func createRequestHasTheItems() throws {
+        let request = CoreRequest(method: .createItems, vaultID: "v", items: [content])
+
+        #expect(try requestObject(request) == fixtureObject("request-create-items"))
+    }
+
+    @Test func getRequestHasTheItemIDs() throws {
+        let request = CoreRequest(method: .getItems, vaultID: "v", itemIDs: ["a", "b"])
+
+        #expect(try requestObject(request) == fixtureObject("request-get-items"))
+    }
+
+    @Test func updateRequestHasTheContent() throws {
+        let request = CoreRequest(method: .updateItem, vaultID: "v", itemID: "i", content: content)
+
+        #expect(try requestObject(request) == fixtureObject("request-update-item"))
+    }
+
+    @Test func deleteRequestHasTheItemIDs() throws {
+        let request = CoreRequest(method: .deleteItems, vaultID: "v", itemIDs: ["a", "b"])
+
+        #expect(try requestObject(request) == fixtureObject("request-delete-items"))
+    }
+
+    @Test func archiveRequestHasTheItemID() throws {
+        let request = CoreRequest(method: .archiveItem, vaultID: "v", itemID: "i")
+
+        #expect(try requestObject(request) == fixtureObject("request-archive-item"))
+    }
+
     @Test func errorCodesMap() throws {
         let response = try CoreJSON.decode(CoreResponse<[VaultOverview]>.self, from: fixture("error-rate-limited"))
 
