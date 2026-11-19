@@ -9,6 +9,8 @@ import Testing
 //
 // The vault is "swift-onepassword writes". Every item a run makes has the tag "swift-onepassword-test".
 // A run first deletes tagged items that a crashed run left, and deletes its own at the end, pass or fail.
+//
+// The SDK cannot delete an archived item, so the one item a run archives stays in the vault's archive.
 // Nothing prints the token or a field value.
 private let writeToken = ProcessInfo.processInfo.environment["OP_TEST_WRITE_TOKEN"] ?? ""
 private let testTag = "swift-onepassword-test"
@@ -75,13 +77,6 @@ struct WriteLiveTests {
 
         let failed = try await client.delete([sshID], inVault: vaultID)
         #expect(failed.isEmpty)
-        // Reported apart, to tell a refusal to delete an archived item from any other failure.
-        do {
-            let archivedFailed = try await client.delete([noteID], inVault: vaultID)
-            #expect(archivedFailed.isEmpty)
-        } catch {
-            Issue.record("deleting the archived note failed: \(error)")
-        }
         let remaining = try await client.items(inVault: vaultID)
         #expect(!remaining.contains { $0.tags.contains(testTag) })
     }
