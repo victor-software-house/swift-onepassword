@@ -1,0 +1,5 @@
+{
+  "method": "items.getAll",
+  "vaultId": "v",
+  "itemIds": ["a", "b"]
+}

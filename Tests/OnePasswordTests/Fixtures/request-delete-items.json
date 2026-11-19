@@ -1,0 +1,5 @@
+{
+  "method": "items.deleteAll",
+  "vaultId": "v",
+  "itemIds": ["a", "b"]
+}

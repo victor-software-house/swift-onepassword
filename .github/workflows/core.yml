@@ -48,7 +48,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          version: 2026.11.6
+          version: 2026.11.10
           # The job uploads a release asset, so no cache entry may reach it.
           cache: false
       - run: xcodebuild -version

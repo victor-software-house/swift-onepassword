@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run the live tests against the test vault; they skip without OP_TEST_SERVICE_ACCOUNT_TOKEN; macOS only"
+#MISE description="Run the live tests against the test vaults; the read tests skip without OP_TEST_SERVICE_ACCOUNT_TOKEN, the write tests without OP_TEST_WRITE_TOKEN; macOS only"
 # The report of the timing test is build/live-report.md. About 45 calls and 70 reads reach 1Password.
 set -euo pipefail
 cd "${MISE_PROJECT_ROOT:?}"

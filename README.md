@@ -1,7 +1,7 @@
 # swift-onepassword
 
 A Swift binding of [1Password's Go SDK](https://github.com/1password/onepassword-sdk-go) for macOS.
-It reads vaults and items with a service account token, with no 1Password CLI and no helper process.
+It reads vaults and items, and writes items, with a service account token, with no 1Password CLI and no helper process.
 
 The Go SDK is built as a static library and shipped as an XCFramework, so an app that uses this package stays one binary.
 
@@ -45,8 +45,24 @@ do throws(OnePasswordError) {
 | `items(inVault:)` | 1 read |
 | `item(_:inVault:)` | 2 reads |
 
-`ItemCategory`, `ItemState` and `FieldType` are open sets with constants such as `.sshKey`, `.active` and `.concealed`.
+`ItemCategory`, `ItemState`, `FieldType` and `ItemFailure` are open sets with constants such as `.sshKey`, `.active`, `.concealed` and `.notFound`.
 A value that the SDK adds later still decodes, and compares by its `rawValue`.
+`Item` and `ItemOverview` have `tags`.
+
+The write calls take a vault ID:
+
+| Call | Returns |
+|:--|:--|
+| `create(_:inVault:)` | one `ItemResult` for each `ItemContent`, in input order |
+| `items(_:inVault:)` | one `ItemResult` for each ID, in input order |
+| `update(_:inVault:to:)` | the updated `Item` |
+| `delete(_:inVault:)` | the `ItemFailure` of each item that was not deleted, by ID; empty when all were |
+| `archive(_:inVault:)` | nothing |
+
+An `ItemResult` is `.item(Item)` or `.failure(ItemFailure)`, so one rejected item does not hide the others.
+`update` sets the title, fields, sections, notes and tags.
+It keeps the item's category, websites, files and document.
+It fails when another writer changes the item between its read and its write.
 
 A `Client` keeps one 1Password client until it is freed.
 Its first creation loads 1Password's core, which takes about a second.
@@ -114,9 +130,12 @@ The tests cover:
 `mise run live` also reads a real test vault.
 It needs `OP_TEST_SERVICE_ACCOUNT_TOKEN` to be a read-only service account token for that vault, and skips otherwise.
 
-- CI runs it on pull requests from this repository and on every release run.
+The write tests use `OP_TEST_WRITE_TOKEN`, a service account that reads and writes only the vault "swift-onepassword writes", and skip without it.
+They create SSH Key and Secure Note items tagged `swift-onepassword-test`, read, update and delete them, and delete what a crashed run left.
+
+- CI runs both on pull requests from this repository and on every release run.
 - The job summary shows the timings of a warm `vaults.list` and `items.get`.
-- It makes about 45 calls to 1Password.
+- The read tests make about 45 calls to 1Password.
 
 The benchmarks:
 

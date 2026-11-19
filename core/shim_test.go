@@ -45,6 +45,67 @@ func (s vaultsStub) List(context.Context, ...onepassword.VaultListParams) ([]one
 	return s.list()
 }
 
+// itemsStub stubs the items API. A method with no function makes the test fail, so a test that
+// expects no SDK call stubs nothing.
+type itemsStub struct {
+	onepassword.ItemsAPI
+	tb        testing.TB
+	createAll func(vaultID string, params []onepassword.ItemCreateParams) (onepassword.ItemsUpdateAllResponse, error)
+	getAll    func(vaultID string, ids []string) (onepassword.ItemsGetAllResponse, error)
+	get       func(vaultID, itemID string) (onepassword.Item, error)
+	put       func(item onepassword.Item) (onepassword.Item, error)
+	deleteAll func(vaultID string, ids []string) (onepassword.ItemsDeleteAllResponse, error)
+	archive   func(vaultID, itemID string) error
+}
+
+func (s itemsStub) CreateAll(_ context.Context, vaultID string, params []onepassword.ItemCreateParams) (onepassword.ItemsUpdateAllResponse, error) {
+	if s.createAll == nil {
+		s.tb.Error("unexpected call to CreateAll")
+		return onepassword.ItemsUpdateAllResponse{}, nil
+	}
+	return s.createAll(vaultID, params)
+}
+
+func (s itemsStub) GetAll(_ context.Context, vaultID string, ids []string) (onepassword.ItemsGetAllResponse, error) {
+	if s.getAll == nil {
+		s.tb.Error("unexpected call to GetAll")
+		return onepassword.ItemsGetAllResponse{}, nil
+	}
+	return s.getAll(vaultID, ids)
+}
+
+func (s itemsStub) Get(_ context.Context, vaultID, itemID string) (onepassword.Item, error) {
+	if s.get == nil {
+		s.tb.Error("unexpected call to Get")
+		return onepassword.Item{}, nil
+	}
+	return s.get(vaultID, itemID)
+}
+
+func (s itemsStub) Put(_ context.Context, item onepassword.Item) (onepassword.Item, error) {
+	if s.put == nil {
+		s.tb.Error("unexpected call to Put")
+		return onepassword.Item{}, nil
+	}
+	return s.put(item)
+}
+
+func (s itemsStub) DeleteAll(_ context.Context, vaultID string, ids []string) (onepassword.ItemsDeleteAllResponse, error) {
+	if s.deleteAll == nil {
+		s.tb.Error("unexpected call to DeleteAll")
+		return onepassword.ItemsDeleteAllResponse{}, nil
+	}
+	return s.deleteAll(vaultID, ids)
+}
+
+func (s itemsStub) Archive(_ context.Context, vaultID, itemID string) error {
+	if s.archive == nil {
+		s.tb.Error("unexpected call to Archive")
+		return nil
+	}
+	return s.archive(vaultID, itemID)
+}
+
 // register adds a client whose APIs are the given stubs, and removes it when the test ends.
 func register(tb testing.TB, client *onepassword.Client) uint64 {
 	tb.Helper()
@@ -96,6 +157,269 @@ func TestBadRequests(t *testing.T) {
 		"empty request":       ``,
 	} {
 		t.Run(name, func(t *testing.T) { wantCode(t, call(handle, req), codeInvalidRequest) })
+	}
+}
+
+func TestWriteBadRequests(t *testing.T) {
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t}})
+	for name, req := range map[string]string{
+		"createAll no vault":         `{"method":"items.createAll","items":[{"title":"t"}]}`,
+		"createAll no items":         `{"method":"items.createAll","vaultId":"v"}`,
+		"createAll empty items":      `{"method":"items.createAll","vaultId":"v","items":[]}`,
+		"createAll items not a list": `{"method":"items.createAll","vaultId":"v","items":{"title":"t"}}`,
+		"getAll no vault":            `{"method":"items.getAll","itemIds":["i"]}`,
+		"getAll no ids":              `{"method":"items.getAll","vaultId":"v"}`,
+		"getAll empty ids":           `{"method":"items.getAll","vaultId":"v","itemIds":[]}`,
+		"update no vault":            `{"method":"items.update","itemId":"i","content":{"title":"t"}}`,
+		"update no item":             `{"method":"items.update","vaultId":"v","content":{"title":"t"}}`,
+		"update no content":          `{"method":"items.update","vaultId":"v","itemId":"i"}`,
+		"update no title":            `{"method":"items.update","vaultId":"v","itemId":"i","content":{"notes":"n"}}`,
+		"deleteAll no vault":         `{"method":"items.deleteAll","itemIds":["i"]}`,
+		"deleteAll no ids":           `{"method":"items.deleteAll","vaultId":"v"}`,
+		"deleteAll empty ids":        `{"method":"items.deleteAll","vaultId":"v","itemIds":[]}`,
+		"archive no vault":           `{"method":"items.archive","itemId":"i"}`,
+		"archive no item":            `{"method":"items.archive","vaultId":"v"}`,
+	} {
+		t.Run(name, func(t *testing.T) { wantCode(t, call(handle, req), codeInvalidRequest) })
+	}
+}
+
+// batchEntry reads one entry of an items.createAll or items.getAll result.
+type batchEntry struct {
+	Item *struct {
+		ID      string `json:"id"`
+		VaultID string `json:"vaultId"`
+		Title   string `json:"title"`
+	} `json:"item"`
+	Failure string `json:"failure"`
+}
+
+func batchResult(t *testing.T, out string) []batchEntry {
+	t.Helper()
+	res := parse(t, out)
+	if res.Error != nil {
+		t.Fatalf("unexpected error %+v", res.Error)
+	}
+	var got []batchEntry
+	if err := json.Unmarshal(res.Result, &got); err != nil {
+		t.Fatal(err)
+	}
+	return got
+}
+
+func TestCreateAllKeepsOrderAndFailureTypes(t *testing.T) {
+	var sent []onepassword.ItemCreateParams
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		createAll: func(vaultID string, params []onepassword.ItemCreateParams) (onepassword.ItemsUpdateAllResponse, error) {
+			if vaultID != "v" {
+				t.Errorf("vault %q, want v", vaultID)
+			}
+			sent = params
+			created := onepassword.Item{ID: "i1", VaultID: "v", Title: "first"}
+			rejected := onepassword.NewItemUpdateFailureReasonTypeVariantItemValidationError("a message the core drops")
+			return onepassword.ItemsUpdateAllResponse{IndividualResponses: []onepassword.Response[onepassword.Item, onepassword.ItemUpdateFailureReason]{
+				{Content: &created},
+				{Error: &rejected},
+			}}, nil
+		}}})
+
+	req := `{"method":"items.createAll","vaultId":"v","items":[
+		{"category":"SecureNote","title":"first","notes":"n","tags":["t"],"fields":[{"id":"f","title":"f","fieldType":"Concealed","value":"x"}]},
+		{"category":"SshKey","title":"second"}]}`
+	got := batchResult(t, call(handle, req))
+
+	if len(got) != 2 || got[0].Item == nil || got[0].Item.ID != "i1" || got[0].Failure != "" {
+		t.Fatalf("unexpected first entry in %+v", got)
+	}
+	if got[1].Item != nil || got[1].Failure != "itemValidationError" {
+		t.Fatalf("unexpected second entry in %+v", got)
+	}
+	if len(sent) != 2 || sent[0].Title != "first" || sent[1].Title != "second" || sent[0].Category != onepassword.ItemCategorySecureNote {
+		t.Fatalf("unexpected params %+v", sent)
+	}
+	if sent[0].VaultID != "v" || sent[1].VaultID != "v" {
+		t.Fatalf("the core must set the vault of each item: %+v", sent)
+	}
+	if len(sent[0].Fields) != 1 || sent[0].Fields[0].FieldType != onepassword.ItemFieldTypeConcealed || sent[0].Fields[0].Value != "x" {
+		t.Fatalf("unexpected fields %+v", sent[0].Fields)
+	}
+	if sent[0].Notes == nil || *sent[0].Notes != "n" || len(sent[0].Tags) != 1 {
+		t.Fatalf("unexpected notes or tags in %+v", sent[0])
+	}
+}
+
+func TestGetAllKeepsOrderAndFailureTypes(t *testing.T) {
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		getAll: func(vaultID string, ids []string) (onepassword.ItemsGetAllResponse, error) {
+			if vaultID != "v" || len(ids) != 3 || ids[0] != "a" || ids[1] != "b" || ids[2] != "c" {
+				t.Errorf("unexpected arguments %q %q", vaultID, ids)
+			}
+			first := onepassword.Item{ID: "a", Title: "A"}
+			third := onepassword.Item{ID: "c", Title: "C"}
+			missing := onepassword.NewItemsGetAllErrorTypeVariantItemNotFound()
+			return onepassword.ItemsGetAllResponse{IndividualResponses: []onepassword.Response[onepassword.Item, onepassword.ItemsGetAllError]{
+				{Content: &first},
+				{Error: &missing},
+				{Content: &third},
+			}}, nil
+		}}})
+
+	got := batchResult(t, call(handle, `{"method":"items.getAll","vaultId":"v","itemIds":["a","b","c"]}`))
+
+	if len(got) != 3 || got[0].Item == nil || got[0].Item.ID != "a" || got[2].Item == nil || got[2].Item.ID != "c" {
+		t.Fatalf("unexpected entries %+v", got)
+	}
+	if got[1].Item != nil || got[1].Failure != "itemNotFound" {
+		t.Fatalf("unexpected second entry in %+v", got)
+	}
+}
+
+func TestBatchAnswerOfTheWrongSizeFails(t *testing.T) {
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		getAll: func(string, []string) (onepassword.ItemsGetAllResponse, error) {
+			return onepassword.ItemsGetAllResponse{}, nil
+		}}})
+	wantCode(t, call(handle, `{"method":"items.getAll","vaultId":"v","itemIds":["a"]}`), codeRequestFailed)
+}
+
+func TestWriteSDKErrorsMapToCodes(t *testing.T) {
+	boom := func() error { return &onepassword.RateLimitExceededError{} }
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		createAll: func(string, []onepassword.ItemCreateParams) (onepassword.ItemsUpdateAllResponse, error) {
+			return onepassword.ItemsUpdateAllResponse{}, boom()
+		},
+		archive: func(string, string) error { return boom() },
+	}})
+	wantCode(t, call(handle, `{"method":"items.createAll","vaultId":"v","items":[{"title":"t"}]}`), codeRateLimited)
+	wantCode(t, call(handle, `{"method":"items.archive","vaultId":"v","itemId":"i"}`), codeRateLimited)
+}
+
+func TestDeleteAllReportsOnlyFailedIDs(t *testing.T) {
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		deleteAll: func(vaultID string, ids []string) (onepassword.ItemsDeleteAllResponse, error) {
+			if vaultID != "v" || len(ids) != 2 {
+				t.Errorf("unexpected arguments %q %q", vaultID, ids)
+			}
+			denied := onepassword.NewItemUpdateFailureReasonTypeVariantItemStatusPermissionError()
+			return onepassword.ItemsDeleteAllResponse{IndividualResponses: map[string]onepassword.Response[struct{}, onepassword.ItemUpdateFailureReason]{
+				"ok":     {Content: &struct{}{}},
+				"denied": {Error: &denied},
+			}}, nil
+		}}})
+
+	res := parse(t, call(handle, `{"method":"items.deleteAll","vaultId":"v","itemIds":["ok","denied"]}`))
+	if res.Error != nil {
+		t.Fatalf("unexpected error %+v", res.Error)
+	}
+	var failed map[string]string
+	if err := json.Unmarshal(res.Result, &failed); err != nil {
+		t.Fatal(err)
+	}
+	if len(failed) != 1 || failed["denied"] != "itemStatusPermissionError" {
+		t.Fatalf("unexpected failures %+v", failed)
+	}
+}
+
+func TestDeleteAllWithNoFailureGivesAnEmptyObject(t *testing.T) {
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		deleteAll: func(string, []string) (onepassword.ItemsDeleteAllResponse, error) {
+			return onepassword.ItemsDeleteAllResponse{IndividualResponses: map[string]onepassword.Response[struct{}, onepassword.ItemUpdateFailureReason]{
+				"ok": {Content: &struct{}{}},
+			}}, nil
+		}}})
+
+	res := parse(t, call(handle, `{"method":"items.deleteAll","vaultId":"v","itemIds":["ok"]}`))
+	if res.Error != nil || string(res.Result) != "{}" {
+		t.Fatalf("unexpected response %+v %s", res.Error, res.Result)
+	}
+}
+
+func TestUpdateKeepsWhatContentDoesNotSet(t *testing.T) {
+	read := onepassword.Item{
+		ID:       "i",
+		Title:    "old",
+		Category: onepassword.ItemCategoryLogin,
+		VaultID:  "v",
+		Fields:   []onepassword.ItemField{{ID: "old", Title: "old", FieldType: onepassword.ItemFieldTypeText, Value: "old"}},
+		Sections: []onepassword.ItemSection{{ID: "old", Title: "old"}},
+		Notes:    "old",
+		Tags:     []string{"old"},
+		Websites: []onepassword.Website{{URL: "https://example.invalid", Label: "site", AutofillBehavior: onepassword.AutofillBehaviorNever}},
+		Version:  7,
+		Files:    []onepassword.ItemFile{{SectionID: "s", FieldID: "f"}},
+		Document: &onepassword.FileAttributes{Name: "doc", ID: "d", Size: 3},
+	}
+	var written onepassword.Item
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		get: func(vaultID, itemID string) (onepassword.Item, error) {
+			if vaultID != "v" || itemID != "i" {
+				t.Errorf("unexpected arguments %q %q", vaultID, itemID)
+			}
+			return read, nil
+		},
+		put: func(item onepassword.Item) (onepassword.Item, error) {
+			written = item
+			item.Version++
+			return item, nil
+		}}})
+
+	req := `{"method":"items.update","vaultId":"v","itemId":"i","content":{
+		"title":"new","notes":"n","tags":["a","b"],
+		"fields":[{"id":"f","title":"F","fieldType":"Concealed","value":"x"}],
+		"sections":[{"id":"s","title":"S"}]}}`
+	res := parse(t, call(handle, req))
+	if res.Error != nil {
+		t.Fatalf("unexpected error %+v", res.Error)
+	}
+
+	if written.Title != "new" || written.Notes != "n" || len(written.Tags) != 2 || written.Tags[1] != "b" {
+		t.Fatalf("the five parts are not replaced: %+v", written)
+	}
+	if len(written.Fields) != 1 || written.Fields[0].ID != "f" || len(written.Sections) != 1 || written.Sections[0].ID != "s" {
+		t.Fatalf("fields or sections not replaced: %+v", written)
+	}
+	if written.ID != "i" || written.VaultID != "v" || written.Category != onepassword.ItemCategoryLogin || written.Version != 7 {
+		t.Fatalf("identity, category or version changed: %+v", written)
+	}
+	if len(written.Websites) != 1 || len(written.Files) != 1 || written.Document == nil || written.Document.Name != "doc" {
+		t.Fatalf("websites, files or document lost: %+v", written)
+	}
+	var updated struct {
+		Title   string `json:"title"`
+		Version uint32 `json:"version"`
+	}
+	if err := json.Unmarshal(res.Result, &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Title != "new" || updated.Version != 8 {
+		t.Fatalf("the result is not the item Put returned: %s", res.Result)
+	}
+}
+
+func TestUpdateFailsWhenPutFails(t *testing.T) {
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		get: func(string, string) (onepassword.Item, error) { return onepassword.Item{ID: "i"}, nil },
+		put: func(onepassword.Item) (onepassword.Item, error) {
+			return onepassword.Item{}, errors.New("incorrect item version")
+		}}})
+	out := call(handle, `{"method":"items.update","vaultId":"v","itemId":"i","content":{"title":"t"}}`)
+	wantCode(t, out, codeRequestFailed)
+	if !strings.Contains(out, "incorrect item version") {
+		t.Fatalf("the SDK's message is lost: %s", out)
+	}
+}
+
+func TestArchiveHasNoResult(t *testing.T) {
+	var vault, item string
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		archive: func(vaultID, itemID string) error {
+			vault, item = vaultID, itemID
+			return nil
+		}}})
+
+	res := parse(t, call(handle, `{"method":"items.archive","vaultId":"v","itemId":"i"}`))
+	if res.Error != nil || len(res.Result) != 0 || vault != "v" || item != "i" {
+		t.Fatalf("unexpected response %+v %s, called with %q %q", res.Error, res.Result, vault, item)
 	}
 }
 
@@ -305,5 +629,40 @@ func TestLongLivedClientMemory(t *testing.T) {
 	}
 	if growth := end.residentMiB - start.residentMiB; growth > 16 {
 		t.Fatalf("the resident size grew by %.1f MiB over 1000 calls", growth)
+	}
+}
+
+func TestUpdateKeepsTheDetailsOfAFieldSentWithout(t *testing.T) {
+	var address onepassword.ItemFieldDetails
+	if err := json.Unmarshal([]byte(`{"type":"Address","content":{"street":"1 Main St","city":"Town","country":"us","zip":"1","state":"S"}}`), &address); err != nil {
+		t.Fatal(err)
+	}
+	read := onepassword.Item{ID: "i", VaultID: "v", Title: "t", Category: onepassword.ItemCategoryIdentity,
+		Fields: []onepassword.ItemField{{ID: "addr", Title: "address", FieldType: onepassword.ItemFieldTypeAddress, Details: &address}}}
+	var written onepassword.Item
+	handle := register(t, &onepassword.Client{ItemsAPI: itemsStub{tb: t,
+		get: func(string, string) (onepassword.Item, error) { return read, nil },
+		put: func(item onepassword.Item) (onepassword.Item, error) {
+			written = item
+			return item, nil
+		}}})
+
+	req := `{"method":"items.update","vaultId":"v","itemId":"i","content":{"title":"t",
+		"fields":[{"id":"addr","title":"address","fieldType":"Address","value":""},{"id":"new","title":"n","fieldType":"Text","value":"x"}]}}`
+	if res := parse(t, call(handle, req)); res.Error != nil {
+		t.Fatalf("unexpected error %+v", res.Error)
+	}
+	if len(written.Fields) != 2 || written.Fields[0].Details == nil {
+		t.Fatalf("the stored address details are lost: %+v", written.Fields)
+	}
+	kept, err := json.Marshal(written.Fields[0].Details)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(kept), "1 Main St") {
+		t.Fatalf("the stored address details changed: %s", kept)
+	}
+	if written.Fields[1].Details != nil {
+		t.Fatalf("a new field gained details: %+v", written.Fields[1])
 	}
 }

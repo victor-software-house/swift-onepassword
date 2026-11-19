@@ -1,0 +1,14 @@
+{
+  "result": [
+    {
+      "id": "cccccccccccccccccccccccccc",
+      "title": "Deploy key",
+      "category": "SshKey",
+      "vaultId": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "websites": null,
+      "createdAt": "2026-11-02T10:00:00Z",
+      "updatedAt": "2026-11-17T12:30:45Z",
+      "state": "active"
+    }
+  ]
+}

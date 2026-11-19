@@ -107,6 +107,7 @@ jobs:
       - name: Read the test vault
         env:
           OP_TEST_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_TEST_SERVICE_ACCOUNT_TOKEN }}
+          OP_TEST_WRITE_TOKEN: ${{ secrets.OP_TEST_WRITE_TOKEN }}
         run: mise run live
       - name: Post the timings
         if: ${{ !cancelled() }}

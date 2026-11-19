@@ -5,17 +5,26 @@ enum CoreMethod: String, Encodable {
     case listVaults = "vaults.list"
     case listItems = "items.list"
     case getItem = "items.get"
+    case createItems = "items.createAll"
+    case getItems = "items.getAll"
+    case updateItem = "items.update"
+    case deleteItems = "items.deleteAll"
+    case archiveItem = "items.archive"
 }
 
 struct CoreRequest: Encodable {
     let method: CoreMethod
     var vaultID: String?
     var itemID: String?
+    var items: [ItemContent]?
+    var itemIDs: [String]?
+    var content: ItemContent?
 
     private enum CodingKeys: String, CodingKey {
-        case method
+        case method, items, content
         case vaultID = "vaultId"
         case itemID = "itemId"
+        case itemIDs = "itemIds"
     }
 }
 
@@ -46,7 +55,7 @@ enum CoreJSON {
     }
 
     static func encode(_ request: CoreRequest) -> String {
-        // A request has only strings, so encoding cannot fail.
+        // A request has only strings, and lists and structs of them, so encoding cannot fail.
         let data = (try? encoder.encode(request)) ?? Data("{}".utf8)
         return String(decoding: data, as: UTF8.self)
     }

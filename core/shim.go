@@ -50,9 +50,115 @@ type response struct {
 }
 
 type request struct {
-	Method  string `json:"method"`
-	VaultID string `json:"vaultId"`
-	ItemID  string `json:"itemId"`
+	Method  string          `json:"method"`
+	VaultID string          `json:"vaultId"`
+	ItemID  string          `json:"itemId"`
+	Items   json.RawMessage `json:"items"`
+	ItemIDs []string        `json:"itemIds"`
+	Content *content        `json:"content"`
+}
+
+// content is the part of an item that items.update sets.
+type content struct {
+	Title    string                    `json:"title"`
+	Fields   []onepassword.ItemField   `json:"fields"`
+	Sections []onepassword.ItemSection `json:"sections"`
+	Notes    string                    `json:"notes"`
+	Tags     []string                  `json:"tags"`
+}
+
+// entry is the result of one item of a batch: the item, or the SDK's type of its failure.
+// The SDK's error message is unexported, so a marshalled SDK response would lose it.
+type entry struct {
+	Item    *onepassword.Item `json:"item,omitempty"`
+	Failure string            `json:"failure,omitempty"`
+}
+
+// entries turns the individual responses of a batch into entries, in the order the SDK returned them.
+// The caller keeps the order of its input, so a count that differs is an error.
+func entries[E any](
+	responses []onepassword.Response[onepassword.Item, E], want int, failure func(E) string,
+) ([]entry, error) {
+	if len(responses) != want {
+		return nil, errors.New("the SDK answered a different number of items than the request had")
+	}
+	out := make([]entry, len(responses))
+	for i, r := range responses {
+		switch {
+		case r.Content != nil:
+			out[i] = entry{Item: r.Content}
+		case r.Error != nil:
+			out[i] = entry{Failure: failure(*r.Error)}
+		default:
+			return nil, errors.New("the SDK answered an item with neither content nor error")
+		}
+	}
+	return out, nil
+}
+
+func createAll(
+	ctx context.Context, items onepassword.ItemsAPI, vaultID string, params []onepassword.ItemCreateParams,
+) (any, error) {
+	res, err := items.CreateAll(ctx, vaultID, params)
+	if err != nil {
+		return nil, err
+	}
+	return entries(res.IndividualResponses, len(params), func(e onepassword.ItemUpdateFailureReason) string {
+		return string(e.Type)
+	})
+}
+
+func getAll(ctx context.Context, items onepassword.ItemsAPI, vaultID string, ids []string) (any, error) {
+	res, err := items.GetAll(ctx, vaultID, ids)
+	if err != nil {
+		return nil, err
+	}
+	return entries(res.IndividualResponses, len(ids), func(e onepassword.ItemsGetAllError) string {
+		return string(e.Type)
+	})
+}
+
+// update reads the item and writes it back with the five parts of c replaced, so the parts the core
+// does not model, such as websites and files, stay as they were.
+func update(
+	ctx context.Context, items onepassword.ItemsAPI, vaultID, itemID string, c content,
+) (onepassword.Item, error) {
+	item, err := items.Get(ctx, vaultID, itemID)
+	if err != nil {
+		return onepassword.Item{}, err
+	}
+	// The Swift side keeps no field details, such as an address's parts.
+	// A field sent back without details keeps those of the stored field with its ID.
+	stored := map[string]*onepassword.ItemFieldDetails{}
+	for _, f := range item.Fields {
+		stored[f.ID] = f.Details
+	}
+	for i, f := range c.Fields {
+		if details, ok := stored[f.ID]; ok && f.Details == nil {
+			c.Fields[i].Details = details
+		}
+	}
+	item.Title = c.Title
+	item.Fields = c.Fields
+	item.Sections = c.Sections
+	item.Notes = c.Notes
+	item.Tags = c.Tags
+	return items.Put(ctx, item)
+}
+
+// deleteAll returns the type of the failure of each item that could not be deleted.
+func deleteAll(ctx context.Context, items onepassword.ItemsAPI, vaultID string, ids []string) (any, error) {
+	res, err := items.DeleteAll(ctx, vaultID, ids)
+	if err != nil {
+		return nil, err
+	}
+	failed := map[string]string{}
+	for id, r := range res.IndividualResponses {
+		if r.Error != nil {
+			failed[id] = string(r.Error.Type)
+		}
+	}
+	return failed, nil
 }
 
 func encode(res response) string {
@@ -177,6 +283,38 @@ func call(handle uint64, req string) string {
 				return fail(codeInvalidRequest, "items.get needs vaultId and itemId")
 			}
 			value, err = client.Items().Get(ctx, r.VaultID, r.ItemID)
+		case "items.createAll":
+			var params []onepassword.ItemCreateParams
+			if r.VaultID == "" || json.Unmarshal(r.Items, &params) != nil || len(params) == 0 {
+				return fail(codeInvalidRequest, "items.createAll needs vaultId and items")
+			}
+			for i := range params {
+				params[i].VaultID = r.VaultID
+			}
+			value, err = createAll(ctx, client.Items(), r.VaultID, params)
+		case "items.getAll":
+			if r.VaultID == "" || len(r.ItemIDs) == 0 {
+				return fail(codeInvalidRequest, "items.getAll needs vaultId and itemIds")
+			}
+			value, err = getAll(ctx, client.Items(), r.VaultID, r.ItemIDs)
+		case "items.update":
+			if r.VaultID == "" || r.ItemID == "" || r.Content == nil || r.Content.Title == "" {
+				return fail(codeInvalidRequest, "items.update needs vaultId, itemId and content with a title")
+			}
+			value, err = update(ctx, client.Items(), r.VaultID, r.ItemID, *r.Content)
+		case "items.deleteAll":
+			if r.VaultID == "" || len(r.ItemIDs) == 0 {
+				return fail(codeInvalidRequest, "items.deleteAll needs vaultId and itemIds")
+			}
+			value, err = deleteAll(ctx, client.Items(), r.VaultID, r.ItemIDs)
+		case "items.archive":
+			if r.VaultID == "" || r.ItemID == "" {
+				return fail(codeInvalidRequest, "items.archive needs vaultId and itemId")
+			}
+			if err := client.Items().Archive(ctx, r.VaultID, r.ItemID); err != nil {
+				return fail(codeOf(err), err.Error())
+			}
+			return encode(response{})
 		default:
 			return fail(codeInvalidRequest, "unknown method")
 		}

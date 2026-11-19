@@ -74,6 +74,23 @@ public struct FieldType: RawRepresentable, Codable, Hashable, Sendable {
     public static let unsupported = FieldType(rawValue: "Unsupported")
 }
 
+/// How the SDK names the failure of an item in a batch. A type that is not listed here still decodes.
+public struct ItemFailure: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+
+    public init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    public static let validationError = ItemFailure(rawValue: "itemValidationError")
+    public static let permissionError = ItemFailure(rawValue: "itemStatusPermissionError")
+    public static let incorrectVersion = ItemFailure(rawValue: "itemStatusIncorrectItemVersion")
+    public static let fileNotFound = ItemFailure(rawValue: "itemStatusFileNotFound")
+    public static let tooBig = ItemFailure(rawValue: "itemStatusTooBig")
+    public static let notFound = ItemFailure(rawValue: "itemNotFound")
+    public static let internalError = ItemFailure(rawValue: "internal")
+}
+
 public struct VaultOverview: Codable, Sendable, Hashable, Identifiable {
     public let id: String
     public let title: String
@@ -94,31 +111,38 @@ public struct ItemOverview: Codable, Sendable, Hashable, Identifiable {
     public let title: String
     public let category: ItemCategory
     public let vaultID: String
+    public let tags: [String]
     public let updatedAt: Date
     public let state: ItemState
 
-    public init(id: String, title: String, category: ItemCategory, vaultID: String, updatedAt: Date, state: ItemState) {
+    public init(
+        id: String, title: String, category: ItemCategory, vaultID: String, tags: [String] = [], updatedAt: Date,
+        state: ItemState
+    ) {
         self.id = id
         self.title = title
         self.category = category
         self.vaultID = vaultID
+        self.tags = tags
         self.updatedAt = updatedAt
         self.state = state
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, category, updatedAt, state
+        case id, title, category, tags, updatedAt, state
         case vaultID = "vaultId"
     }
 
     // Reading the category and the state as strings costs fewer allocations than decoding each
     // through its own single value container.
+    // Go writes the tags of an item without any as null, which reads as empty.
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
         title = try values.decode(String.self, forKey: .title)
         category = ItemCategory(rawValue: try values.decode(String.self, forKey: .category))
         vaultID = try values.decode(String.self, forKey: .vaultID)
+        tags = try values.decodeIfPresent([String].self, forKey: .tags) ?? []
         updatedAt = try values.decode(Date.self, forKey: .updatedAt)
         state = ItemState(rawValue: try values.decode(String.self, forKey: .state))
     }
@@ -217,12 +241,13 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
     public let fields: [Field]
     public let sections: [Section]
     public let notes: String
+    public let tags: [String]
     public let version: UInt32
     public let updatedAt: Date
 
     public init(
         id: String, title: String, category: ItemCategory, vaultID: String,
-        fields: [Field], sections: [Section], notes: String, version: UInt32, updatedAt: Date
+        fields: [Field], sections: [Section], notes: String, tags: [String] = [], version: UInt32, updatedAt: Date
     ) {
         self.id = id
         self.title = title
@@ -231,16 +256,17 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
         self.fields = fields
         self.sections = sections
         self.notes = notes
+        self.tags = tags
         self.version = version
         self.updatedAt = updatedAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, category, fields, sections, notes, version, updatedAt
+        case id, title, category, fields, sections, notes, tags, version, updatedAt
         case vaultID = "vaultId"
     }
 
-    // Go encodes a nil slice as null, so an item without sections or fields reads as empty.
+    // Go encodes a nil slice as null, so an item without sections, fields or tags reads as empty.
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
@@ -250,7 +276,56 @@ public struct Item: Codable, Sendable, Hashable, Identifiable {
         fields = try values.decodeIfPresent([Field].self, forKey: .fields) ?? []
         sections = try values.decodeIfPresent([Section].self, forKey: .sections) ?? []
         notes = try values.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        tags = try values.decodeIfPresent([String].self, forKey: .tags) ?? []
         version = try values.decode(UInt32.self, forKey: .version)
         updatedAt = try values.decode(Date.self, forKey: .updatedAt)
+    }
+}
+
+/// What `Client.create(_:inVault:)` writes for a new item, and what `Client.update(_:inVault:to:)` sets on an
+/// existing one: the title, fields, sections, notes and tags.
+/// An update ignores the category and keeps the item's own.
+public struct ItemContent: Encodable, Sendable, Hashable {
+    public let category: ItemCategory
+    public let title: String
+    public let fields: [Item.Field]
+    public let sections: [Item.Section]
+    public let notes: String
+    public let tags: [String]
+
+    public init(
+        category: ItemCategory, title: String, fields: [Item.Field] = [], sections: [Item.Section] = [],
+        notes: String = "", tags: [String] = []
+    ) {
+        self.category = category
+        self.title = title
+        self.fields = fields
+        self.sections = sections
+        self.notes = notes
+        self.tags = tags
+    }
+}
+
+/// The result for one item of a batch: the item, or the SDK's type of failure.
+public enum ItemResult: Sendable, Hashable, Decodable {
+    case item(Item)
+    case failure(ItemFailure)
+
+    private enum CodingKeys: String, CodingKey {
+        case item, failure
+    }
+
+    // The core writes {"item": ...} or {"failure": "..."} for each item.
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        if let item = try values.decodeIfPresent(Item.self, forKey: .item) {
+            self = .item(item)
+        } else if let failure = try values.decodeIfPresent(ItemFailure.self, forKey: .failure) {
+            self = .failure(failure)
+        } else {
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath, debugDescription: "an item result has neither an item nor a failure")
+            )
+        }
     }
 }
