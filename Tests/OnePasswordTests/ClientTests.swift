@@ -76,13 +76,17 @@ struct ClientTests {
         }
         let start = residentMiB()
 
-        for _ in 0..<1000 {
+        // The size after each hundred calls shows whether a growth comes in one step or builds up.
+        var steps: [Double] = []
+        for call in 1...1000 {
             _ = try? await client.vaults()
             _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
+            if call % 100 == 0 { steps.append(residentMiB()) }
         }
         let end = residentMiB()
 
         print(String(format: "long-lived client, resident size: start %.1f MiB, end %.1f MiB", start, end))
+        print("long-lived client, resident size per hundred calls: " + steps.map { String(format: "%.1f", $0) }.joined(separator: " "))
         #expect(end - start < 32, "the resident size grew from \(start) to \(end) MiB")
     }
 
