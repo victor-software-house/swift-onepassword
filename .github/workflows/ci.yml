@@ -212,6 +212,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           OP_TEST_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_TEST_SERVICE_ACCOUNT_TOKEN }}
+          OP_TEST_WRITE_TOKEN: ${{ secrets.OP_TEST_WRITE_TOKEN }}
         run: mise run live
       # Only a run on the default branch saves.
       # A pull request, a merge group and a run on another branch restore and
