@@ -1,5 +1,11 @@
 # Changelog
 
+## swift-onepassword 0.0.4
+
+- - `Client` writes items: `create(_:inVault:)`, `items(_:inVault:)`, `update(_:inVault:to:)`, `delete(_:inVault:)` and `archive(_:inVault:)`.
+    A batch call returns one `ItemResult` per item, in input order, so one failed item does not hide the others.
+  - `Item` and `ItemOverview` have `tags`, which read as empty when the item has none ([`02bf45f`](https://github.com/victor-software-house/swift-onepassword/commit/02bf45fbac9125ed1b3776a3f25c36d93c2b662f)).
+
 ## swift-onepassword 0.0.3
 
 - - `OnePasswordError` has a `code`: `authenticationFailed`, `rateLimited`, `invalidResponse` or `requestFailed`.  
