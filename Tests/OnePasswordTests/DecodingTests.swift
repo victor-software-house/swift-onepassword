@@ -41,7 +41,7 @@ struct DecodingTests {
         #expect(item.category == .sshKey)
         #expect(item.version == 7)
         #expect(item.sections == [Item.Section(id: "signd", title: "signd")])
-        #expect(item.fields.map(\.id) == ["private_key", "public_key", "hosts", "rsa_key"])
+        #expect(item.fields.map(\.id) == ["private_key", "public_key", "hosts"])
         #expect(item.fields[0].type == .sshKey)
         #expect(item.fields[0].value == "PLACEHOLDER-PRIVATE-KEY-NOT-A-KEY")
         #expect(item.fields[0].sectionID == nil)
@@ -63,9 +63,14 @@ struct DecodingTests {
         #expect(fields[2].publicKey == nil)
         #expect(fields[2].fingerprint == nil)
         #expect(fields[2].keyType == nil)
-        // A key type that names a length.
-        #expect(fields[3].fingerprint == "SHA256:FAKERSAFINGERPRINT")
-        #expect(fields[3].keyType == "RSA, 4096-bit")
+    }
+
+    @Test func anRSAKeyTypeNamesItsLength() throws {
+        let response = try CoreJSON.decode(CoreResponse<Item>.self, from: fixture("item-ssh-key-rsa"))
+        let field = try #require(response.result?.fields.first)
+
+        #expect(field.fingerprint == "SHA256:FAKERSAFINGERPRINT")
+        #expect(field.keyType == "RSA, 4096-bit")
     }
 
     @Test func fieldsWithoutAnSshKeyHaveNoKeyAttributes() throws {

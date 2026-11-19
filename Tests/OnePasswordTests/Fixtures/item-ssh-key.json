@@ -31,20 +31,6 @@
         "sectionId": "signd",
         "fieldType": "Text",
         "value": "git.example.com"
-      },
-      {
-        "id": "rsa_key",
-        "title": "rsa key",
-        "fieldType": "SshKey",
-        "value": "PLACEHOLDER-PRIVATE-KEY-NOT-A-KEY",
-        "details": {
-          "type": "SshKey",
-          "content": {
-            "publicKey": "ssh-rsa AAAAFAKEFAKEFAKEFAKE fake-rsa-key-for-tests",
-            "fingerprint": "SHA256:FAKERSAFINGERPRINT",
-            "keyType": "RSA, 4096-bit"
-          }
-        }
       }
     ],
     "sections": [
