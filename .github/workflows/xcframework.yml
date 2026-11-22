@@ -1,0 +1,204 @@
+name: XCFramework
+
+# The Go package in core/ builds into COnePassword.xcframework.zip.
+# The COnePassword binaryTarget of Package.swift names it by release.
+# Its release tag hashes the files the build reads (mise run xcframework:tag).
+# A Plan job finds whether a release with the zip exists, and Build runs only
+# when none does.
+#
+# Every pull request runs the workflow. A paths filter would repeat the input
+# list of the tag, and the Plan job costs seconds.
+#
+# A pull request from a fork gets a read-only token, so its Build and Publish
+# skip. A maintainer reviews the fork's changes and pushes them to a branch
+# here, then runs this workflow there through workflow_dispatch.
+#
+# The workflow never runs on pull_request_target, which would hand a write
+# token to the fork.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# Each job declares the permissions it needs.
+permissions:
+  contents: read
+
+concurrency:
+  # A draft run gets a group of its own, so it never cancels the ready run.
+  group: >-
+    xcframework-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name
+    }}${{ github.event.pull_request.draft && '-draft' || '' }}
+  cancel-in-progress: true
+
+env:
+  # The CI profile; local work loads dev from .miserc.toml, which CI never does.
+  MISE_ENV: ci
+
+jobs:
+  # The tag of the pull request's head, or of the dispatched commit, and the
+  # state of its release: none, incomplete or complete.
+  plan:
+    name: Plan
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # The mise action exchanges the job's token for the release mirror's.
+      id-token: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      state: ${{ steps.release.outputs.state }}
+    steps:
+      - name: Check out the commit
+        timeout-minutes: 3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # workflow_dispatch carries no pull request.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      # mise installs the task's Go as the task runs.
+      - name: Install mise
+        timeout-minutes: 5
+        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+        with:
+          mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
+          mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
+          version: 2026.11.12
+          install: "false"
+          cache_save: >-
+            ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+      - name: Compute the tag
+        id: tag
+        timeout-minutes: 5
+        run: echo "tag=$(mise run --quiet xcframework:tag)" >>"$GITHUB_OUTPUT"
+      - name: Look up the release
+        id: release
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          ZIP: COnePassword.xcframework.zip
+        run: |
+          if ! assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' 2>/dev/null); then
+            state=none
+          elif printf '%s\n' "$assets" | grep -qxF "$ZIP"; then
+            state=complete
+          else
+            state=incomplete
+          fi
+          echo "$TAG: $state"
+          echo "state=$state" >>"$GITHUB_OUTPUT"
+
+  # Builds the zip with no write permission, and hands it to Publish as an
+  # artifact.
+  build:
+    name: Build
+    needs: plan
+    if: >-
+      ${{ !github.event.pull_request.draft && needs.plan.outputs.state != 'complete'
+      && (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: xcode-27
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # The mise action exchanges the job's token for the release mirror's.
+      id-token: write
+    steps:
+      - name: Check out the commit
+        timeout-minutes: 3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install mise
+        timeout-minutes: 5
+        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+        with:
+          mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
+          mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
+          version: 2026.11.12
+          install: "false"
+          # The zip becomes a release asset, so no cache entry may reach it.
+          cache: "false"
+      - name: Build the XCFramework
+        timeout-minutes: 20
+        # Quoted: ":::" contains ": ", which YAML reads as a mapping.
+        run: "mise run xcframework:build ::: core:measure"
+      - name: Write the release notes
+        timeout-minutes: 2
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+          OUT: build/core
+          ZIP: COnePassword.xcframework.zip
+        run: |
+          go=$(mise x go@1.27.4 -- go version)
+          xcode=$(xcodebuild -version | head -n 1)
+          {
+            echo "The XCFramework built from core/ for $TAG."
+            echo
+            echo "- Input hash: ${TAG##*-}"
+            echo "- $ZIP: $(cat "$OUT/size.txt") bytes"
+            echo "- Checksum: $(cat "$OUT/checksum.txt")"
+            echo "- Built with $go and $xcode on $ImageOS ($ImageVersion)"
+            if [ -s "$OUT/notes.md" ]; then
+              echo
+              cat "$OUT/notes.md"
+            fi
+          } >"$OUT/release-notes.md"
+      - name: Upload the zip and the notes
+        timeout-minutes: 5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: xcframework
+          path: |
+            build/core/COnePassword.xcframework.zip
+            build/core/release-notes.md
+          if-no-files-found: error
+
+  # Runs no repository code: no checkout, no mise and no task, so the write
+  # token never meets the code the pull request changed.
+  publish:
+    name: Publish
+    needs: [plan, build]
+    if: ${{ !github.event.pull_request.draft && needs.build.result == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # Two runs with the same inputs never delete or create the release at
+    # once. GitHub keeps one pending run per group, and a newer one replaces
+    # it, which publishes the same inputs.
+    concurrency:
+      group: xcframework-publish-${{ needs.plan.outputs.tag }}
+      cancel-in-progress: false
+    steps:
+      - name: Download the zip and the notes
+        timeout-minutes: 5
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: xcframework
+          path: release
+      # Inside the group, a run that finds the release complete stops, and one
+      # that finds it incomplete deletes it with its tag before it publishes.
+      - name: Publish the prerelease
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          ZIP: COnePassword.xcframework.zip
+        run: |
+          if assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' 2>/dev/null); then
+            if printf '%s\n' "$assets" | grep -qxF "$ZIP"; then
+              echo "$TAG is complete."
+              exit 0
+            fi
+            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          fi
+          gh release create "$TAG" "release/$ZIP" --repo "$GITHUB_REPOSITORY" \
+            --prerelease --target "$SHA" --title "$TAG" --notes-file release/release-notes.md
