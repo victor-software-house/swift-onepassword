@@ -35,10 +35,9 @@ includes = [
 
 # Swift and the C toolchain come from the selected Xcode, which macOS runners and the box hosts carry.
 [tools]
-# The Go toolchain that builds core/ into a static library.
+# The Go toolchain of bench:go and of the xcframework:test override below.
+# The xcframework:* file tasks declare their own go and gh.
 go = "1.27.4"
-# core:pin reads the core release through gh.
-gh = "2.105.0"
 
 [tasks.build]
 description = "Build the Swift package"
@@ -50,7 +49,7 @@ run = "swift test"
 
 [tasks.check]
 description = "Run the repository checks, then build the package and run its tests but the live ones, as CI does"
-depends = ["check:repo", "core:test"]
+depends = ["check:repo", "xcframework:check", "xcframework:test"]
 # The live task runs LiveTests, once, and posts their timings.
 # The memory test reads the resident size of the whole process, so it runs alone.
 # Other suites run beside it in one process and raise that size by tens of megabytes.
@@ -58,4 +57,15 @@ run = [
   "swift build",
   "swift test --skip LiveTests --skip aLongLivedClientKeepsItsMemory",
   "swift test --filter aLongLivedClientKeepsItsMemory",
+]
+
+# Replaces the go_xcframework piece's file task of the same name.
+# The race detector adds its own memory to the resident size, so the memory
+# test runs alone, without it.
+[tasks."xcframework:test"]
+description = "Run the Go tests of core/ with the race detector, then the memory test alone"
+dir = "{{config_root}}/core"
+run = [
+  "go test -race -skip '^TestLongLivedClientMemory$' ./...",
+  "go test -run '^TestLongLivedClientMemory$' ./...",
 ]

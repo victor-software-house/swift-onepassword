@@ -17,8 +17,8 @@ let package = Package(
     ],
     targets: [
         // The Go SDK, built from core/ as a static library.
-        // The tag in the url is core- and the first 12 hex digits of the git tree hash of core/.
-        // `mise run core:pin` rewrites the url and the checksum after the Core workflow publishes the release.
+        // The tag in the url is core- and the first 12 hex digits of a hash over the files the build reads.
+        // `mise run xcframework:pin` rewrites the url and the checksum after the XCFramework workflow publishes the release.
         .binaryTarget(
             name: "COnePassword",
             url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-85a6a8be3369/COnePassword.xcframework.zip",

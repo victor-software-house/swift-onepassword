@@ -74,18 +74,20 @@ Keep the client and reuse it.
    It calls the SDK, pinned to an exact version in `core/go.mod`.
    It exports four C functions: `op_client_open`, `op_call`, `op_client_close` and `op_free`.
    Requests and responses are JSON.
-2. `mise run core:build` builds `core/` with `go build -buildmode=c-archive` for arm64 and x86_64.
+2. `mise run xcframework:build` builds `core/` with `go build -buildmode=c-archive` for arm64 and x86_64.
    It joins them with `lipo`, wraps the result as `COnePassword.xcframework` with a module map, and prints the zip's checksum and size.
    `mise run core:measure` also times the first client and reads its peak resident size.
-3. The binary is versioned by the content of `core/`, not by the package version.
-   Its release tag is `core-` and the first 12 hex digits of the git tree hash of `core/` (`mise run core:tag`).
-4. The `Core` workflow (`.github/workflows/core.yml`) builds the binary on a GitHub-hosted macOS runner when a pull request changes `core/`.
-   It attaches the zip to a prerelease with that tag.
+3. The binary is versioned by the files its build reads, not by the package version.
+   Its release tag is `core-` and the first 12 hex digits of a hash over those files (`mise run xcframework:tag`).
+   They are the Go sources that the build of `core/` compiles from its own module, with `core/go.mod` and `core/go.sum`.
+4. The `XCFramework` workflow (`.github/workflows/xcframework.yml`) runs on every pull request.
+   It skips the build when a release with that tag already has the zip.
+   Otherwise it builds the binary on a GitHub-hosted macOS runner and attaches the zip to a prerelease with that tag.
    It records the zip size and the first client's start-up time in the release notes.
 5. `Package.swift` names that release in its `binaryTarget`.
-   After the workflow publishes a release for a new `core/`, run `mise run core:pin`.
+   After the workflow publishes a release for a new tag, run `mise run xcframework:pin`.
    It downloads the zip, computes the checksum, and rewrites the url and checksum in `Package.swift`.
-6. The `core:check` task, part of `mise run check`, fails when the tag in `Package.swift` differs from the one for `core/` at HEAD.
+6. The `xcframework:check` task, part of `mise run check`, fails when the tag in `Package.swift` differs from the one `xcframework:tag` prints at HEAD.
 
 The package's own releases (`v*` tags, made by verctl) are separate from the `core-*` prereleases.
 After a release, a throwaway package that depends on the released version must build and link on a GitHub-hosted runner.
