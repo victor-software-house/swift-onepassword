@@ -156,11 +156,11 @@ jobs:
           persist-credentials: false
       - name: Install locked tools
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3 # main, 2026-11-18
+        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
-          version: 2026.11.10
+          version: 2026.11.12
           # Only a run on the default branch writes the tools cache, as with
           # the build caches below.
           # A pull request or a merge group adds no entry of its own.
@@ -268,11 +268,11 @@ jobs:
       # mise installs each task's tools as the task runs.
       - name: Install mise
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3 # main, 2026-11-18
+        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
-          version: 2026.11.10
+          version: 2026.11.12
           install: "false"
           # Only a run on the default branch writes the tools cache, as in the
           # build.
@@ -327,7 +327,7 @@ jobs:
     permissions:
       actions: read
     steps:
-      - uses: victor-software-house/actions/verify-jobs@6243d0aec17b8d3eb664b6cf5162bfb5ef7990c3 # main, 2026-11-18
+      - uses: victor-software-house/actions/verify-jobs@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
         with:
           needs: ${{ toJSON(needs) }}
           jobs: "build checks"
