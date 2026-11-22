@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; edit with `copier update --data`.
-_commit: v0.0.130
+_commit: v0.0.135
 _src_path: https://github.com/victor-software-house/templates.git
 build_os: macos
 ci_extra_tasks:
@@ -10,11 +10,12 @@ ci_secrets:
 default_branch: main
 generated_paths: []
 github_owner: victor-software-house
+go_version: 1.27.4
+layer: whole
 linux_image: ubuntu-26.04
 macos_image: macos-27
 merge_queue: true
 merge_queue_cancel_lower: true
-mise_version: 2026.11.10
 pieces:
 - hooks
 - lint_markdown
@@ -24,6 +25,7 @@ pieces:
 - openspec
 - ci
 - drift_check
+- go_xcframework
 pieces_extra:
 - lint_workflows
 platforms:
@@ -31,6 +33,7 @@ platforms:
 - macos-arm64
 project: swift-package
 prose_fail_level: suggestion
+repository: victor-software-house/swift-onepassword
 repository_visibility: public
 verify_timeout: 15
 workflow_policy:
@@ -41,3 +44,7 @@ workflow_policy:
 - pins
 - mise_env
 workflow_policy_namespaces: []
+xcframework_dir: core
+xcframework_extra_tasks:
+- core:measure
+xcframework_module: COnePassword

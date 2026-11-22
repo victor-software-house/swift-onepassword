@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #MISE description="Time one op_client_open with a malformed token against the built archive; macOS only"
-#MISE depends=["core:build"]
+#MISE depends=["xcframework:build"]
 # The first client loads 1Password's core, so this is the start-up cost of an app that links the
 # archive.
 # The call must fail with the authenticationFailed code.
 # A run prints the time in milliseconds and the process's peak resident size in MiB.
-# It writes the two numbers to build/core/startup-ms.txt and peak-rss-mib.txt.
+# It appends the two numbers to build/core/notes.md, which the XCFramework release notes end with.
 set -euo pipefail
 
 out=${MISE_PROJECT_ROOT:?}/build/core
-clang -arch arm64 -mmacosx-version-min=26.0 -x c - -x none "$out/libonepassword.a" -I "$out/headers" \
+clang -arch arm64 -mmacosx-version-min=26.0 -x c - -x none "$out/libCOnePassword.a" -I "$out/headers" \
   -framework CoreFoundation -framework Security -lresolv -o "$out/measure" << 'C'
 #include <stdio.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <time.h>
-#include "onepassword.h"
+#include "COnePassword.h"
 
 int main(void) {
   struct timespec start, end;
@@ -37,6 +37,8 @@ int main(void) {
 }
 C
 read -r startup rss < <("$out/measure")
-printf '%s\n' "$startup" > "$out/startup-ms.txt"
-printf '%s\n' "$rss" > "$out/peak-rss-mib.txt"
+{
+  echo "- First client start-up, one \`op_client_open\` with a malformed token: $startup ms"
+  echo "- Peak resident size of that process: $rss MiB"
+} >> "$out/notes.md"
 echo "startup_ms=$startup peak_rss_mib=$rss"
