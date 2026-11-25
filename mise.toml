@@ -26,7 +26,7 @@ includes = [
   # Pinned git:: catalogs follow mise-tasks.
   "mise-tasks",
   # template:check, template:off, and template:on, at actions main, 2026-11-22.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=925b514c52d2cb2f9b9d09a074dbab5c96a4f302",
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac",
   # The q task (qctl v0.7.0), pinned by commit because a tag can move.
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=ea9e838d7af20683930156dee9fdf16cebee5fcb",
   # The ver task (verctl v0.8.5), pinned by commit because a tag can move.

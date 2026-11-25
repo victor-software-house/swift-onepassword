@@ -61,7 +61,7 @@ jobs:
       # mise installs the task's Go as the task runs.
       - name: Install mise
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+        uses: victor-software-house/actions/mise@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
@@ -116,7 +116,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Install mise
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+        uses: victor-software-house/actions/mise@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
