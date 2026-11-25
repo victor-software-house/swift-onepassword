@@ -32,8 +32,10 @@ awk -v module="$module" -v url="$url" -v checksum="$checksum" '
   /\.binaryTarget\(/ { block = 1; target = 0 }
   block && index($0, "name: \"" module "\"") { target = 1 }
   block && target && sub(/url: "[^"]*"/, "url: \"" url "\"") { urls++ }
+  # swift format puts a url longer than its line limit on the line after url:.
+  block && target && wrapped && sub(/"[^"]*"/, "\"" url "\"") { urls++ }
   block && target && sub(/checksum: "[^"]*"/, "checksum: \"" checksum "\"") { sums++ }
-  { print }
+  { print; wrapped = block && target && /url:[[:space:]]*$/ }
   block && /^[[:space:]]*\)/ { block = 0; target = 0 }
   END { if (urls != 1 || sums != 1) exit 1 }
 ' "$root/Package.swift" >"$work/Package.swift" || {
