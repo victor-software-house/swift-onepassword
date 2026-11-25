@@ -46,7 +46,7 @@ includes = [
   # Pinned git:: catalogs follow mise-tasks.
   "mise-tasks",
   # The shared Swift tasks, at actions main, 2026-11-25.
-  "git::https://github.com/victor-software-house/actions.git//tasks/swift.toml?ref=cdc7fa66335d3f94d44b4e12572f3be301ffba92",
+  "git::https://github.com/victor-software-house/actions.git//tasks/swift.toml?ref=f52f847fd81923dd9f5fb57c8433abf06dc33f8b",
   # template:check, template:off, and template:on, at actions main, 2026-11-22.
   "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac",
   # The q task (qctl v0.7.0), pinned by commit because a tag can move.
