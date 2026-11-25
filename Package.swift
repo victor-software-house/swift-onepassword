@@ -15,7 +15,7 @@ let package = Package(
     name: "swift-onepassword",
     platforms: [.macOS(.v26)],
     products: [
-        .library(name: "OnePassword", targets: ["OnePassword"]),
+        .library(name: "OnePassword", targets: ["OnePassword"])
     ],
     targets: [
         // The Go SDK, built from core/ as a static library.

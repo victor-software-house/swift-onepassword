@@ -41,7 +41,9 @@ enum RFC3339 {
                 index += 1
             }
             guard digits > 0 else { return nil }
-            fraction = Double(value) / [1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000][digits]
+            fraction =
+                Double(value)
+                / [1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000][digits]
         }
 
         // Z, or +hh:mm and -hh:mm.

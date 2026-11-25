@@ -52,7 +52,9 @@ struct ClientTests {
                 group.addTask {
                     var count = 0
                     for _ in 0..<100 {
-                        do throws(OnePasswordError) { _ = try await client.vaults() } catch { if error.code == .requestFailed { count += 1 } }
+                        do throws(OnePasswordError) { _ = try await client.vaults() } catch {
+                            if error.code == .requestFailed { count += 1 }
+                        }
                     }
                     return count
                 }
@@ -70,11 +72,13 @@ struct ClientTests {
     /// The loose bound on the whole loop still catches a burst early in it.
     /// A leak of 2 KiB a call, client or failing open, grows that by 1 MiB.
     @Test func aLongLivedClientKeepsItsMemory() async {
-        _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
+        _ = try? await Client(
+            token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
         let client = Client(handle: 1 << 44)
         for _ in 0..<100 {
             _ = try? await client.vaults()
-            _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
+            _ = try? await Client(
+                token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
         }
         let start = residentMiB()
 
@@ -82,13 +86,16 @@ struct ClientTests {
         var steps: [Double] = []
         for call in 1...1000 {
             _ = try? await client.vaults()
-            _ = try? await Client(token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
+            _ = try? await Client(
+                token: "malformed-token", integrationName: "swift-onepassword-tests", integrationVersion: "0")
             if call % 100 == 0 { steps.append(residentMiB()) }
         }
         let end = residentMiB()
 
         print(String(format: "long-lived client, resident size: start %.1f MiB, end %.1f MiB", start, end))
-        print("long-lived client, resident size per hundred calls: " + steps.map { String(format: "%.1f", $0) }.joined(separator: " "))
+        print(
+            "long-lived client, resident size per hundred calls: "
+                + steps.map { String(format: "%.1f", $0) }.joined(separator: " "))
         let late = end - steps[4]
         #expect(end - start < 32, "the resident size grew from \(start) to \(end) MiB")
         #expect(late < 1, "the resident size grew by \(late) MiB over the last 500 calls")

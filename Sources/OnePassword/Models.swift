@@ -338,7 +338,9 @@ public enum ItemResult: Sendable, Hashable, Decodable {
             self = .failure(failure)
         } else {
             throw DecodingError.dataCorrupted(
-                .init(codingPath: decoder.codingPath, debugDescription: "an item result has neither an item nor a failure")
+                .init(
+                    codingPath: decoder.codingPath, debugDescription: "an item result has neither an item nor a failure"
+                )
             )
         }
     }
