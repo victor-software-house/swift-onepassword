@@ -10,6 +10,9 @@ public final class Client: Sendable {
 
     private let handle: UInt64
 
+    /// Opens a client for a service account token.
+    /// `integrationName` and `integrationVersion` name the calling program to 1Password.
+    /// It throws when the core cannot open the client, for example for a malformed token.
     public init(token: String, integrationName: String, integrationVersion: String) async throws(OnePasswordError) {
         let json = try await Self.run {
             token.withCString { token in
