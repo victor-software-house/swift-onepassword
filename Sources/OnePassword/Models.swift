@@ -99,9 +99,9 @@ public struct FieldType: RawRepresentable, Codable, Hashable, Sendable {
     public static let creditCardNumber = FieldType(rawValue: "CreditCardNumber")
     /// The type of a phone number field.
     public static let phone = FieldType(rawValue: "Phone")
-    /// The type of an URL field.
+    /// The type of a URL field.
     public static let url = FieldType(rawValue: "Url")
-    /// The type of an one-time password (TOTP) field.
+    /// The type of a one-time password (TOTP) field.
     public static let totp = FieldType(rawValue: "Totp")
     /// The type of an email address field.
     public static let email = FieldType(rawValue: "Email")
