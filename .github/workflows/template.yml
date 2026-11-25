@@ -61,6 +61,7 @@ jobs:
         .editorconfig
         .github/actionlint.yaml
         .github/workflows/ci.yml
+        .github/workflows/release.yml
         .github/workflows/secrets.yml
         .github/workflows/template.yml
         .github/workflows/xcframework.yml
@@ -68,10 +69,13 @@ jobs:
         .miserc.toml
         .oxfmtrc.json
         .rumdl.toml
+        .spi.yml
+        .swift-format
         .taplo.toml
         .typos.toml
         .ctl/hakkiri.yaml
         Cargo.toml
+        Package.swift
         bunfig.toml
         clippy.toml
         committed.toml

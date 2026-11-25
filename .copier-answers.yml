@@ -26,8 +26,13 @@ pieces:
 - ci
 - drift_check
 - go_xcframework
+- swift_tasks
+- swift_settings
+- swift_release
 pieces_extra:
 - lint_workflows
+- swift_format
+- swift_docs
 platforms:
 - linux-x64
 - macos-arm64
@@ -35,6 +40,8 @@ project: swift-package
 prose_fail_level: suggestion
 repository: victor-software-house/swift-onepassword
 repository_visibility: public
+swift_doc_targets:
+- OnePassword
 verify_timeout: 15
 workflow_policy:
 - drafts

@@ -1,8 +1,9 @@
 name: Release
 
-# Every push to main runs verctl's release workflow.
+# Every push to the default branch runs verctl's release workflow.
 # It releases the version commit of a merged Version PR on GitHub (publisher none).
 # It also opens or updates the Version PR.
+# Jobs of this repository's own go below the verctl job.
 #
 # When the push is the version commit, a throwaway package then depends on the released version
 # and links it.
@@ -15,11 +16,13 @@ on:
 
 permissions: {}
 
+# The jobs this repository adds below read this env.
+# A reusable workflow does not inherit it, so the verctl job sets its own.
 env:
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
-  # .miserc.toml loads the dev profile, the git hooks and their scanners, for local work only.
+  # The CI profile; local work loads dev from .miserc.toml, which CI never does.
   MISE_ENV: ci
 
 concurrency:

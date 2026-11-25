@@ -1,7 +1,9 @@
 // swift-tools-version: 6.4
 import PackageDescription
 
-let strict: [SwiftSetting] = [
+// The compiler settings every target of this package shares.
+// A target passes swiftSettings: sharedSwiftSettings, or appends its own settings to it.
+let sharedSwiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
     .enableUpcomingFeature("InferIsolatedConformances"),
     .enableUpcomingFeature("ExistentialAny"),
@@ -27,13 +29,13 @@ let package = Package(
         .target(
             name: "OnePassword",
             dependencies: ["COnePassword"],
-            swiftSettings: strict
+            swiftSettings: sharedSwiftSettings
         ),
         .testTarget(
             name: "OnePasswordTests",
             dependencies: ["OnePassword"],
             resources: [.copy("Fixtures")],
-            swiftSettings: strict
+            swiftSettings: sharedSwiftSettings
         ),
     ]
 )
