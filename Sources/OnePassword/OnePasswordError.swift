@@ -20,8 +20,8 @@ public struct OnePasswordError: Error, Sendable, Equatable, CustomStringConverti
     /// What went wrong. It never contains the token.
     public let message: String
 
-    /// Creates an error from a code and a message, as ``MissingPlantedSymbol`` describes.
-    public init(code: Code, message: String) {
+    /// Creates an error from a code and a message.
+    init(code: Code, message: String) {
         self.code = code
         self.message = message
     }
