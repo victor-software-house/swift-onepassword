@@ -5,6 +5,9 @@ name: Release
 # It also opens or updates the Version PR.
 # Jobs of this repository's own go below the verctl job.
 #
+# verctl plans only on the default branch.
+# release:check in mise.toml runs the same ver task in CI before a merge.
+#
 # When the push is the version commit, a throwaway package then depends on the released version
 # and links it.
 # A manual run checks the latest release again.

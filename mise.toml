@@ -35,8 +35,16 @@ depends = [
   "swift:lint",
   "swift:docs",
   "swift:api",
+  "release:check",
   "check:repo",
 ]
+
+# verctl's release workflow plans only on the default branch. This runs the same
+# served ver task in every CI run, so a release setup it cannot read fails before
+# a merge.
+[tasks."release:check"]
+description = "verctl reads the release config and every pending fragment"
+run = ["mise run --quiet ver check", "mise run --quiet ver status"]
 
 # mise-tasks/ contains this repository's task fragments and file tasks.
 # An includes list replaces the default task dirs, so mise-tasks comes first.
@@ -47,12 +55,12 @@ includes = [
   "mise-tasks",
   # The shared Swift tasks, at actions main, 2026-11-25.
   "git::https://github.com/victor-software-house/actions.git//tasks/swift.toml?ref=f52f847fd81923dd9f5fb57c8433abf06dc33f8b",
+  # The ver task (verctl v0.8.5), which the release workflow runs.
+  "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=cef779a4ed2ce4705fd25c6ea17a5454d2522adc",
   # template:check, template:off, and template:on, at actions main, 2026-11-22.
   "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac",
   # The q task (qctl v0.7.0), pinned by commit because a tag can move.
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=ea9e838d7af20683930156dee9fdf16cebee5fcb",
-  # The ver task (verctl v0.8.5), pinned by commit because a tag can move.
-  "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=cef779a4ed2ce4705fd25c6ea17a5454d2522adc",
 ]
 
 # Swift and the C toolchain come from the selected Xcode, which macOS runners and the box hosts carry.
