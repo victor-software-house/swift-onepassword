@@ -148,7 +148,15 @@ jobs:
       pull-requests: read
       # The mise action exchanges the job's token for the release mirror's.
       id-token: write
+    env:
+      # The Xcode of the macOS image, from the label table. A version the image
+      # lacks fails the first step, which names its path.
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
+      - name: Show the Xcode and Swift versions
+        run: |
+          xcodebuild -version
+          swift --version
       - name: Check out repository
         timeout-minutes: 3
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -156,7 +164,7 @@ jobs:
           persist-credentials: false
       - name: Install locked tools
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+        uses: victor-software-house/actions/mise@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
@@ -268,7 +276,7 @@ jobs:
       # mise installs each task's tools as the task runs.
       - name: Install mise
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+        uses: victor-software-house/actions/mise@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
@@ -327,7 +335,7 @@ jobs:
     permissions:
       actions: read
     steps:
-      - uses: victor-software-house/actions/verify-jobs@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+      - uses: victor-software-house/actions/verify-jobs@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
         with:
           needs: ${{ toJSON(needs) }}
           jobs: "build checks"

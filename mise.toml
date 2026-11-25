@@ -18,6 +18,26 @@ lockfile_platforms = ["linux-x64", "macos-arm64"]
 [tool_config]
 locked = true
 
+[env]
+# swift:docs builds the documentation of these targets.
+SWIFT_DOC_TARGETS = "OnePassword"
+
+# The one gate CI runs, composed from the pieces this repository keeps.
+# To change one step, define a task of the same name below, such as swift:test,
+# which wins over the catalog's. A check of the repository's own goes in check:local.
+[tasks.check]
+description = "Every check this package runs"
+depends = [
+  "xcframework:check",
+  "xcframework:test",
+  "swift:build",
+  "swift:test",
+  "swift:lint",
+  "swift:docs",
+  "swift:api",
+  "check:repo",
+]
+
 # mise-tasks/ contains this repository's task fragments and file tasks.
 # An includes list replaces the default task dirs, so mise-tasks comes first.
 # Add pinned git:: catalogs after it.
@@ -25,8 +45,10 @@ locked = true
 includes = [
   # Pinned git:: catalogs follow mise-tasks.
   "mise-tasks",
+  # The shared Swift tasks, at actions main, 2026-11-25.
+  "git::https://github.com/victor-software-house/actions.git//tasks/swift.toml?ref=f52f847fd81923dd9f5fb57c8433abf06dc33f8b",
   # template:check, template:off, and template:on, at actions main, 2026-11-22.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=925b514c52d2cb2f9b9d09a074dbab5c96a4f302",
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac",
   # The q task (qctl v0.7.0), pinned by commit because a tag can move.
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=ea9e838d7af20683930156dee9fdf16cebee5fcb",
   # The ver task (verctl v0.8.5), pinned by commit because a tag can move.
@@ -47,14 +69,12 @@ run = "swift build"
 description = "Run the Swift package tests"
 run = "swift test"
 
-[tasks.check]
-description = "Run the repository checks, then build the package and run its tests but the live ones, as CI does"
-depends = ["check:repo", "xcframework:check", "xcframework:test"]
 # The live task runs LiveTests, once, and posts their timings.
 # The memory test reads the resident size of the whole process, so it runs alone.
 # Other suites run beside it in one process and raise that size by tens of megabytes.
+[tasks."swift:test"]
+description = "Run the package tests but the live ones, then the memory test alone"
 run = [
-  "swift build",
   "swift test --skip LiveTests --skip aLongLivedClientKeepsItsMemory",
   "swift test --filter aLongLivedClientKeepsItsMemory",
 ]

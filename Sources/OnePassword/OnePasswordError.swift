@@ -2,6 +2,7 @@ import Foundation
 
 /// An error from a 1Password call. It never contains the service account token.
 public struct OnePasswordError: Error, Sendable, Equatable, CustomStringConvertible, LocalizedError {
+    /// The kind of an error.
     public enum Code: String, Sendable, CaseIterable {
         /// 1Password refused the token or did not authenticate the request, for example a token that
         /// is malformed, rotated or revoked.
@@ -14,15 +15,20 @@ public struct OnePasswordError: Error, Sendable, Equatable, CustomStringConverti
         case requestFailed
     }
 
+    /// The kind of the error.
     public let code: Code
+    /// What went wrong. It never contains the token.
     public let message: String
 
+    /// Creates an error from a code and a message.
     public init(code: Code, message: String) {
         self.code = code
         self.message = message
     }
 
+    /// The code and the message, as `code: message`.
     public var description: String { "\(code.rawValue): \(message)" }
 
+    /// The message, which `localizedDescription` shows.
     public var errorDescription: String? { message }
 }

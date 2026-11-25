@@ -42,7 +42,7 @@ jobs:
   # It installs its tools through the release mirror with a session token.
   template:
     if: ${{ !github.event.pull_request.draft }}
-    uses: victor-software-house/actions/.github/workflows/template-check.yml@925b514c52d2cb2f9b9d09a074dbab5c96a4f302 # main, 2026-11-22
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
     permissions:
       contents: read
       # The mise action exchanges it for the mirror's session token.
@@ -61,6 +61,7 @@ jobs:
         .editorconfig
         .github/actionlint.yaml
         .github/workflows/ci.yml
+        .github/workflows/release.yml
         .github/workflows/secrets.yml
         .github/workflows/template.yml
         .github/workflows/xcframework.yml
@@ -68,10 +69,13 @@ jobs:
         .miserc.toml
         .oxfmtrc.json
         .rumdl.toml
+        .spi.yml
+        .swift-format
         .taplo.toml
         .typos.toml
         .ctl/hakkiri.yaml
         Cargo.toml
+        Package.swift
         bunfig.toml
         clippy.toml
         committed.toml

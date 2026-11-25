@@ -1,7 +1,9 @@
 // swift-tools-version: 6.4
 import PackageDescription
 
-let strict: [SwiftSetting] = [
+// The compiler settings every target of this package shares.
+// A target passes swiftSettings: sharedSwiftSettings, or appends its own settings to it.
+let sharedSwiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
     .enableUpcomingFeature("InferIsolatedConformances"),
     .enableUpcomingFeature("ExistentialAny"),
@@ -13,7 +15,7 @@ let package = Package(
     name: "swift-onepassword",
     platforms: [.macOS(.v26)],
     products: [
-        .library(name: "OnePassword", targets: ["OnePassword"]),
+        .library(name: "OnePassword", targets: ["OnePassword"])
     ],
     targets: [
         // The Go SDK, built from core/ as a static library.
@@ -21,19 +23,20 @@ let package = Package(
         // `mise run xcframework:pin` rewrites the url and the checksum after the XCFramework workflow publishes the release.
         .binaryTarget(
             name: "COnePassword",
-            url: "https://github.com/victor-software-house/swift-onepassword/releases/download/core-3020071e16dc/COnePassword.xcframework.zip",
+            url:
+                "https://github.com/victor-software-house/swift-onepassword/releases/download/core-3020071e16dc/COnePassword.xcframework.zip",
             checksum: "2818c3c684034ec4e800727114bae7371060725698e7c7539804547602dc460f"
         ),
         .target(
             name: "OnePassword",
             dependencies: ["COnePassword"],
-            swiftSettings: strict
+            swiftSettings: sharedSwiftSettings
         ),
         .testTarget(
             name: "OnePasswordTests",
             dependencies: ["OnePassword"],
             resources: [.copy("Fixtures")],
-            swiftSettings: strict
+            swiftSettings: sharedSwiftSettings
         ),
     ]
 )

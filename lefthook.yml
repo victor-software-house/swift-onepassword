@@ -9,10 +9,14 @@
 # providers inside hooks.
 pre-commit:
   commands:
-    # The template pins no Swift formatter, so the secrets scan is the only
-    # pre-commit command.
-    staged-secrets:
+    # The toolchain's swift format lints the package, as CI does.
+    # *.swift matches every depth; **/*.swift misses files at the root.
+    swift-lint:
+      glob: "*.swift"
       env: &hookenv { MISE_ENV: "dev,hooks" }
+      run: mise run swift:lint
+    staged-secrets:
+      env: *hookenv
       run: mise run hooks:secrets:staged
 
 commit-msg:

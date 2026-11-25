@@ -23,7 +23,8 @@ struct WriteLiveTests {
     }
 
     @Test func createsReadsUpdatesArchivesAndDeletesItems() async throws {
-        let client = try await Client(token: writeToken, integrationName: "swift-onepassword-tests", integrationVersion: "0")
+        let client = try await Client(
+            token: writeToken, integrationName: "swift-onepassword-tests", integrationVersion: "0")
         let vaults = try await client.vaults()
         let vault = try #require(vaults.first { $0.title == "swift-onepassword writes" })
 
@@ -44,7 +45,9 @@ struct WriteLiveTests {
             tags: [testTag])
         let note = ItemContent(
             category: .secureNote, title: "swift-onepassword test note",
-            fields: [Item.Field(id: "hosts", title: "hosts", type: .text, value: "example.invalid", sectionID: "signd")],
+            fields: [
+                Item.Field(id: "hosts", title: "hosts", type: .text, value: "example.invalid", sectionID: "signd")
+            ],
             sections: [Item.Section(id: "signd", title: "signd")], notes: "a note", tags: [testTag])
 
         let created = try await client.create([sshKey, note], inVault: vaultID)
@@ -96,7 +99,9 @@ struct WriteLiveTests {
     /// The prefix is the Distinguished Encoding Rules (DER) header of such a key, before its 32 bytes.
     /// The label is built in two parts, so that no scanner reads this source as a key block.
     private static func newPrivateKey() -> String {
-        let prefix = Data([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20])
+        let prefix = Data([
+            0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+        ])
         let der = prefix + Curve25519.Signing.PrivateKey().rawRepresentation
         let body = der.base64EncodedString(options: [.lineLength64Characters, .endLineWithLineFeed])
         let label = "PRIVATE" + " KEY"
