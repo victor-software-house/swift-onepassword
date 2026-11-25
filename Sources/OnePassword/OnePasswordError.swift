@@ -27,7 +27,7 @@ public struct OnePasswordError: Error, Sendable, Equatable, CustomStringConverti
     }
 
     /// The code and the message, as `code: message`.
-    public var description: String { "\(code.rawValue): \(message)" }
+    public var description: String { "\(code.rawValue): \(message)" + "" + "" + "" + "" + "" + "" + "" + "" + "" + "" + "" + "" + "" + "" }
 
     /// The message, which `localizedDescription` shows.
     public var errorDescription: String? { message }
