@@ -21,6 +21,8 @@ locked = true
 [env]
 # swift:docs builds the documentation of these targets.
 SWIFT_DOC_TARGETS = "OnePassword"
+# specs:budget reads the word budget of each file kind from here.
+OPENSPEC_BUDGETS = "proposal=600 design=2500 tasks=1500 note=60 spec=1200 research=2500"
 
 # The one gate CI runs, composed from the pieces this repository keeps.
 # To change one step, define a task of the same name below, such as swift:test,
@@ -53,12 +55,15 @@ run = ["mise run --quiet ver check", "mise run --quiet ver status"]
 includes = [
   # Pinned git:: catalogs follow mise-tasks.
   "mise-tasks",
-  # The shared Swift tasks, at actions main, 2026-11-25.
-  "git::https://github.com/victor-software-house/actions.git//tasks/swift.toml?ref=f52f847fd81923dd9f5fb57c8433abf06dc33f8b",
+  # specs:budget, from the tasks-specs package at its digest.
+  """oci::ghcr.io/victor-software-house/tasks-specs@sha256:\
+    9dbe200899e239236d98a88416e1c78fe60e7d06343bc40fa52665e8f7102f0e""",
+  # The shared Swift tasks, at actions main, 2026-11-26.
+  "git::https://github.com/victor-software-house/actions.git//tasks/swift.toml?ref=e9cf7ef0da4f4a9a7a6f978f5dd54be0d0d539bc",
   # The ver task (verctl v0.8.5), which the release workflow runs.
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=cef779a4ed2ce4705fd25c6ea17a5454d2522adc",
-  # template:check, template:off, and template:on, at actions main, 2026-11-22.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac",
+  # template:check, template:off, and template:on, at actions main, 2026-11-26.
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=e9cf7ef0da4f4a9a7a6f978f5dd54be0d0d539bc",
   # The q task (qctl v0.7.0), pinned by commit because a tag can move.
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=ea9e838d7af20683930156dee9fdf16cebee5fcb",
 ]
