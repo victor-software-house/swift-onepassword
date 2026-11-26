@@ -86,44 +86,11 @@ jobs:
           # private repository, so its checkout takes the whole history.
           # The '0' is a string, so the || does not drop it.
           fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}
-      - name: Detect changed paths
-        id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          list-files: json
-          filters: |
-            all:
-              - '**'
-            docs:
-              - '*.md'
-              - 'docs/**'
-              - 'openspec/**'
-              - 'tasks.yaml'
-              - '.changeset/*.md'
       - name: Decide whether to build
         id: scope
-        shell: bash
-        env:
-          ALL: ${{ steps.filter.outputs.all_count }}
-          DOCS: ${{ steps.filter.outputs.docs_count }}
-          DOCS_FILES: ${{ steps.filter.outputs.docs_files }}
-        run: |
-          build=false
-          if [ "$ALL" != "$DOCS" ]; then
-            build=true
-          else
-            while IFS= read -r file; do
-              # A source spells the file's path from the root, as a test run
-              # there does, or a relative path that climbs to the root and ends
-              # in it.
-              if git grep -qF -e "/$file\"" -e "\"$file\"" -e "\"./$file\"" -- '*.swift'; then
-                echo "A source reads $file, so the build reads it."
-                build=true
-                break
-              fi
-            done < <(jq -r '.[]' <<<"$DOCS_FILES")
-          fi
-          echo "build=$build" >>"$GITHUB_OUTPUT"
+        uses: victor-software-house/actions/build-scope@e9cf7ef0da4f4a9a7a6f978f5dd54be0d0d539bc # main, 2026-11-26
+        with:
+          swift: true
 
   build:
     name: Build and test
@@ -164,7 +131,7 @@ jobs:
           persist-credentials: false
       - name: Install locked tools
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
+        uses: victor-software-house/actions/mise@e9cf7ef0da4f4a9a7a6f978f5dd54be0d0d539bc # main, 2026-11-26
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
@@ -276,7 +243,7 @@ jobs:
       # mise installs each task's tools as the task runs.
       - name: Install mise
         timeout-minutes: 5
-        uses: victor-software-house/actions/mise@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
+        uses: victor-software-house/actions/mise@e9cf7ef0da4f4a9a7a6f978f5dd54be0d0d539bc # main, 2026-11-26
         with:
           mirror-url: ${{ secrets.RELEASE_MIRROR_URL }}
           mirror-key: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
@@ -309,17 +276,9 @@ jobs:
       actions: write
     steps:
       - name: Delete the superseded entries
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for prefix in swift-; do
-            gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key "$prefix" \
-              --limit 100 --json id,createdAt --jq 'sort_by(.createdAt) | reverse | .[1:][].id' |
-              while IFS= read -r id; do
-                gh cache delete "$id" --repo "$GITHUB_REPOSITORY"
-              done
-          done
+        uses: victor-software-house/actions/prune-caches@e9cf7ef0da4f4a9a7a6f978f5dd54be0d0d539bc # main, 2026-11-26
+        with:
+          prefixes: swift-
 
   # The one check a ruleset requires: it reports on every pull request and
   # merge queue run. It fails when the build or the repository checks failed or
@@ -335,7 +294,7 @@ jobs:
     permissions:
       actions: read
     steps:
-      - uses: victor-software-house/actions/verify-jobs@1faaba6ff4a50ea1ecd26485acff0a58b9ad66ac # main, 2026-11-22
+      - uses: victor-software-house/actions/verify-jobs@e9cf7ef0da4f4a9a7a6f978f5dd54be0d0d539bc # main, 2026-11-26
         with:
           needs: ${{ toJSON(needs) }}
           jobs: "build checks"
